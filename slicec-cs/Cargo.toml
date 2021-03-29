@@ -5,7 +5,7 @@ authors = ["ZeroC Inc."]
 description = """
 The Slice parser and other core components of Slice compilers.
 """
-keywords = ["slice-cs", "slice", "ice", "icerpc"]
+keywords = ["slice", "ice", "icerpc"]
 license = "Apache-2.0"
 edition = "2018"
 
