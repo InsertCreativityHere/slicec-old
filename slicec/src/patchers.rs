@@ -18,6 +18,8 @@ pub(crate) struct ScopePatcher<'a> {
     /// applied to the AST nodes in-place after visiting.
     /// Patches are stored as a tuple of a node's index in the AST, and the scope that should be patched into it.
     patches: Vec<(usize, String)>,
+    /// TODO
+    constructed_table: HashMap<String, usize>,
     /// Reference to the compiler's error handler so the patcher can output errors.
     error_handler: &'a mut ErrorHandler,
 }
@@ -29,6 +31,7 @@ impl<'a> ScopePatcher<'a> {
             // We add an empty string so when we join the vector with '::' separators, we'll get a leading "::".
             current_scope: vec!["".to_owned()],
             patches: Vec::new(),
+            constructed_table: HashMap::new(),
             error_handler,
         }
     }
@@ -66,14 +69,13 @@ impl<'a> ScopePatcher<'a> {
         }
 
         // Second, iterate over the patches and apply them to the AST nodes in-place.
-        for (index, scoped_identifier) in self.patches.iter() {
+        for (index, scope) in self.patches.into_iter() {
             // TODO replace this with 'https://github.com/rust-lang/rust/issues/74773' when it's merged into STABLE.
-            let mut scope = scoped_identifier.rsplitn(2, "::").collect::<Vec<&str>>()[1].to_owned();
             if scope.is_empty() {
                 scope = "::".to_owned();
             }
 
-            let node = ast.resolve_index_mut(*index);
+            let node = ast.resolve_index_mut(index);
             match node {
                 Node::Module(_, module_def) => {
                     module_def.scope = Some(scope);
@@ -87,6 +89,12 @@ impl<'a> ScopePatcher<'a> {
                 Node::DataMember(_, data_member) => {
                     data_member.scope = Some(scope);
                 }
+                Node::Sequence(_, sequence) => {
+                    sequence.scope = Some(scope);
+                }
+                Node::Dictionary(_, dictionary) => {
+                    dictionary.scope = Some(scope);
+                }
                 _ => {
                     // There are no other other symbols that can appear in the lookup table.
                     panic!("Grammar element does not need scope patching!\n{:?}", node);
@@ -95,16 +103,23 @@ impl<'a> ScopePatcher<'a> {
         }
     }
 
-    /// Computes the fully scoped identifier for the provided element, and stores it in the patch vector.
-    fn add_patch(&mut self, element: &impl NamedSymbol, index: usize) {
+    /// Computes the scope of the element currently being visited and adds an entry for it to the patch vector.
+    /// Any elements added to the patch vector will have their 'scope' field patched when 'patch_scopes' is called.
+    fn add_patch(&mut self, index: usize) {
+        self.patches.push((index, self.current_scope.join("::")))
+    }
+
+    /// Computes the fully scoped identifier for the provided element, and stores an entry for it in the lookup table.
+    fn add_table_entry(&mut self, element: &impl NamedSymbol, index: usize) {
         let scoped_identifier = self.current_scope.join("::") + "::" + element.identifier();
-        self.patches.push((index, scoped_identifier));
+        self.constructed_table.insert(scoped_identifier, index);
     }
 }
 
 impl<'a> Visitor for ScopePatcher<'a> {
     fn visit_module_start(&mut self, module_def: &Module, index: usize, _: &Ast) {
-        self.add_patch(module_def, index);
+        self.add_patch(index);
+        self.add_table_entry(module_def, index);
         self.current_scope.push(module_def.identifier().to_owned());
     }
 
@@ -113,7 +128,8 @@ impl<'a> Visitor for ScopePatcher<'a> {
     }
 
     fn visit_struct_start(&mut self, struct_def: &Struct, index: usize, _: &Ast) {
-        self.add_patch(struct_def, index);
+        self.add_patch(index);
+        self.add_table_entry(struct_def, index);
         self.current_scope.push(struct_def.identifier().to_owned());
     }
 
@@ -122,7 +138,8 @@ impl<'a> Visitor for ScopePatcher<'a> {
     }
 
     fn visit_interface_start(&mut self, interface_def: &Interface, index: usize, _: &Ast) {
-        self.add_patch(interface_def, index);
+        self.add_patch(index);
+        self.add_table_entry(interface_def, index);
         self.current_scope.push(interface_def.identifier().to_owned());
     }
 
@@ -131,7 +148,16 @@ impl<'a> Visitor for ScopePatcher<'a> {
     }
 
     fn visit_data_member(&mut self, data_member: &DataMember, index: usize, _: &Ast) {
-        self.add_patch(data_member, index);
+        self.add_patch(index);
+        self.add_table_entry(data_member, index);
+    }
+
+    fn visit_sequence(&mut self, _: &Sequence, index: usize, _: &Ast) {
+        self.add_patch(index);
+    }
+
+    fn visit_dictionary(&mut self, _: &Dictionary, index: usize, _: &Ast) {
+        self.add_patch(index);
     }
 }
 
@@ -149,30 +175,42 @@ impl<'a> TypePatcher<'a> {
     pub(crate) fn patch_types(&mut self, ast: &mut Ast, lookup_table: &HashMap<String, usize>) {
         for node in ast.iter_mut() {
             // Get the fully qualified scope for the element, and a reference to it's data type field.
-            let (scope, type_use) = match node {
+            match node {
                 Node::DataMember(_, data_member) => {
-                    (data_member.scope.as_ref().unwrap(), &mut data_member.data_type)
+                    let scope = data_member.scope.as_ref().unwrap();
+                    self.patch_type(scope, lookup_table, &mut data_member.data_type);
                 },
-                _ => { continue },
+                Node::Sequence(_, sequence) => {
+                    let scope = sequence.scope.as_ref().unwrap();
+                    self.patch_type(scope, lookup_table, &mut sequence.element_type);
+                },
+                Node::Dictionary(_, dictionary) => {
+                    let scope = dictionary.scope.as_ref().unwrap();
+                    self.patch_type(scope, lookup_table, &mut dictionary.key_type);
+                    self.patch_type(scope, lookup_table, &mut dictionary.value_type);
+                },
+                _ => {}
             };
+        }
+    }
 
-            // Skip if the type doesn't need patching. This is the case for builtin types that don't need resolving.
-            if type_use.definition.is_some() {
-                continue;
-            }
+    fn patch_type(&mut self, scope: &str, lookup_table: &HashMap<String, usize>, type_use: &mut TypeRef) {
+        // Skip if the type doesn't need patching. This is the case for builtin types that don't need resolving.
+        if type_use.definition.is_some() {
+            return;
+        }
 
-            // Attempt to resolve the type, and report an error if it fails.
-            match Self::find_type(scope, &type_use.type_name, lookup_table) {
-                Some(index) => {
-                    type_use.definition = Some(index);
-                },
-                None => {
-                    self.error_handler.report_error((
-                        format!("failed to resolve type `{}` in scope `{}`", &type_use.type_name, scope),
-                        type_use.location.clone(),
-                    ).into());
-                },
-            }
+        // Attempt to resolve the type, and report an error if it fails.
+        match Self::find_type(scope, &type_use.type_name, lookup_table) {
+            Some(index) => {
+                type_use.definition = Some(index);
+            },
+            None => {
+                self.error_handler.report_error((
+                    format!("failed to resolve type `{}` in scope `{}`", &type_use.type_name, scope),
+                    type_use.location.clone(),
+                ).into());
+            },
         }
     }
 
