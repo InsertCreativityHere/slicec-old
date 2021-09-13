@@ -1,3 +1,4 @@
+// Copyright (c) ZeroC, Inc. All rights reserved.
 
 pub struct Location {
     pub start: (usize, usize),

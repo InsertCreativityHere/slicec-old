@@ -1,3 +1,4 @@
+// Copyright (c) ZeroC, Inc. All rights reserved.
 
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
