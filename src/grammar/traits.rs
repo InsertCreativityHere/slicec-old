@@ -1,12 +1,12 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::util::{SharedPtr, WeakPtr};
+use crate::util::{OwnedPtr, WeakPtr};
 
 use super::comments::DocComment;
 use super::slice::{Attribute, Identifier};
 use super::util::*;
 
-pub trait Element {
+pub trait Element: std::fmt::Debug {
     fn kind(&self) -> &'static str;
 }
 
@@ -20,8 +20,8 @@ pub trait NamedSymbol: Symbol {
 }
 
 pub trait ScopedSymbol: Symbol {
-    fn scope(&self) -> &str;
-    fn parser_scope(&self) -> &str;
+    fn scope(&self) -> &String;
+    fn parser_scope(&self) -> &String;
     fn raw_scope(&self) -> &Scope;
 }
 
@@ -29,20 +29,20 @@ pub trait Attributable: Symbol {
     fn attributes(&self) -> &Vec<Attribute>;
     fn has_attribute(&self, directive: &str) -> bool;
     fn get_attribute(&self, directive: &str) -> Option<&Vec<String>>;
-    fn get_raw_attribute(&self, directive: &str) -> Option<Attribute>;
+    fn get_raw_attribute(&self, directive: &str) -> Option<&Attribute>;
 }
 
 pub trait Commentable: Symbol {
-    fn comment(&self) -> &DocComment;
+    fn comment(&self) -> Option<&DocComment>;
 }
 
 pub trait Entity: NamedSymbol + ScopedSymbol + Attributable + Commentable {}
 
-pub trait Container<T: Entity + ?Sized = dyn Entity>: Entity {
-    fn contents(&self) -> &Vec<SharedPtr<T>>;
+pub trait Container<T: Entity>: Entity {
+    fn contents(&self) -> &Vec<OwnedPtr<T>>;
 }
 
-pub trait Contained<T: Entity + ?Sized = dyn Entity>: Entity {
+pub trait Contained<T: Entity + ?Sized>: Entity {
     fn parent(&self) -> &WeakPtr<T>;
 }
 
