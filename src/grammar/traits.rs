@@ -5,6 +5,7 @@ use crate::util::{OwnedPtr, WeakPtr};
 use super::comments::DocComment;
 use super::slice::{Attribute, Identifier};
 use super::util::*;
+use super::wrappers::Types;
 
 pub trait Element: std::fmt::Debug {
     fn kind(&self) -> &'static str;
@@ -47,6 +48,7 @@ pub trait Contained<T: Entity + ?Sized>: Entity {
 }
 
 pub trait Type: Element {
+    fn get_concrete_type(&self) -> Types;
     fn is_fixed_size(&self) -> bool;
     fn min_wire_size(&self) -> u32;
 }

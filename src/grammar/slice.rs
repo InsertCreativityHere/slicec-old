@@ -1,14 +1,16 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::util::{SharedPtr, WeakPtr};
+use crate::util::*;
 
 use super::comments::DocComment;
 use super::traits::*;
 use super::util::*;
+use super::wrappers::*;
 
+#[derive(Debug)]
 pub struct Module {
     pub identifier: Identifier,
-    pub contents: Vec<SharedPtr<Definition>>,
+    pub contents: Vec<OwnedPtr<Definition>>,
     pub parent: Option<WeakPtr<Module>>,
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
@@ -16,18 +18,14 @@ pub struct Module {
     pub location: Location,
 }
 
-pub enum Definition {
-    Struct(Struct),
-    Class(Class),
-    Exception(Exception),
-    Interface(Interface),
-    Enum(Enum),
-    TypeAlias(TypeAlias),
-}
+implement_Element_for!(Module, "module");
+implement_Entity_for!(Module);
+implement_Container_for!(Module, Definition, contents);
 
+#[derive(Debug)]
 pub struct Struct {
     pub identifier: Identifier,
-    pub members: Vec<SharedPtr<DataMember>>,
+    pub members: Vec<OwnedPtr<DataMember>>,
     pub parent: WeakPtr<Module>,
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
@@ -35,9 +33,35 @@ pub struct Struct {
     pub location: Location,
 }
 
+impl Type for Struct {
+    fn get_concrete_type(&self) -> Types {
+        Types::Struct(&self)
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        // A struct is fixed size if and only if all it's members are fixed size.
+        self.members.iter().all(
+            |member| member.borrow().data_type.definition.borrow().is_fixed_size()
+        )
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        // The min-wire-size of a struct is the min-wire-size of all its members added together.
+        self.members.iter().map(
+            |member| member.borrow().data_type.definition.borrow().min_wire_size()
+        ).sum()
+    }
+}
+
+implement_Element_for!(Struct, "struct");
+implement_Entity_for!(Struct);
+implement_Container_for!(Struct, DataMember, members);
+implement_Contained_for!(Struct, Module);
+
+#[derive(Debug)]
 pub struct Class {
     pub identifier: Identifier,
-    pub members: Vec<SharedPtr<DataMember>>,
+    pub members: Vec<OwnedPtr<DataMember>>,
     pub base: Option<TypeRef<Class>>,
     pub parent: WeakPtr<Module>,
     pub scope: Scope,
@@ -46,9 +70,35 @@ pub struct Class {
     pub location: Location,
 }
 
+impl Type for Class {
+    fn get_concrete_type(&self) -> Types {
+        Types::Class(&self)
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        // A class is fixed size if and only if all it's members are fixed size.
+        self.members.iter().all(
+            |member| member.borrow().data_type.definition.borrow().is_fixed_size()
+        )
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        // The min-wire-size of a class is the min-wire-size of all its members added together.
+        self.members.iter().map(
+            |member| member.borrow().data_type.definition.borrow().min_wire_size()
+        ).sum()
+    }
+}
+
+implement_Element_for!(Class, "class");
+implement_Entity_for!(Class);
+implement_Container_for!(Class, DataMember, members);
+implement_Contained_for!(Class, Module);
+
+#[derive(Debug)]
 pub struct Exception {
     pub identifier: Identifier,
-    pub members: Vec<SharedPtr<DataMember>>,
+    pub members: Vec<OwnedPtr<DataMember>>,
     pub base: Option<TypeRef<Exception>>,
     pub parent: WeakPtr<Module>,
     pub scope: Scope,
@@ -57,6 +107,12 @@ pub struct Exception {
     pub location: Location,
 }
 
+implement_Element_for!(Exception, "exception");
+implement_Entity_for!(Exception);
+implement_Container_for!(Exception, DataMember, members);
+implement_Contained_for!(Exception, Module);
+
+#[derive(Debug)]
 pub struct DataMember {
     pub identifier: Identifier,
     pub data_type: TypeRef,
@@ -68,9 +124,14 @@ pub struct DataMember {
     pub location: Location,
 }
 
+implement_Element_for!(DataMember, "data member");
+implement_Entity_for!(DataMember);
+implement_Contained_for!(DataMember, dyn Container<DataMember>);
+
+#[derive(Debug)]
 pub struct Interface {
     pub identifier: Identifier,
-    pub operations: Vec<SharedPtr<Operation>>,
+    pub operations: Vec<OwnedPtr<Operation>>,
     pub bases: Vec<TypeRef<Interface>>,
     pub parent: WeakPtr<Module>,
     pub scope: Scope,
@@ -79,10 +140,31 @@ pub struct Interface {
     pub location: Location,
 }
 
+impl Type for Interface {
+    fn get_concrete_type(&self) -> Types {
+        Types::Interface(&self)
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        false
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        // TODO write a comment explaining why this is 3.
+        3
+    }
+}
+
+implement_Element_for!(Interface, "interface");
+implement_Entity_for!(Interface);
+implement_Container_for!(Interface, Operation, operations);
+implement_Contained_for!(Interface, Module);
+
+#[derive(Debug)]
 pub struct Operation {
     pub identifier: Identifier,
-    pub return_type: Vec<SharedPtr<Parameter>>,
-    pub parameters: Vec<SharedPtr<Parameter>>,
+    pub return_type: Vec<OwnedPtr<Parameter>>,
+    pub parameters: Vec<OwnedPtr<Parameter>>,
     pub parent: WeakPtr<Interface>,
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
@@ -90,6 +172,11 @@ pub struct Operation {
     pub location: Location,
 }
 
+implement_Element_for!(Operation, "operation");
+implement_Entity_for!(Operation);
+implement_Contained_for!(Operation, Interface);
+
+#[derive(Debug)]
 pub struct Parameter {
     pub identifier: Identifier,
     pub data_type: TypeRef,
@@ -103,10 +190,24 @@ pub struct Parameter {
     pub location: Location,
 }
 
+impl Element for Parameter {
+    fn kind(&self) -> &'static str {
+        if self.is_returned {
+            "return element"
+        } else {
+            "parameter"
+        }
+    }
+}
+
+implement_Entity_for!(Parameter);
+implement_Contained_for!(Parameter, Operation);
+
+#[derive(Debug)]
 pub struct Enum {
     pub identifier: Identifier,
-    pub enumerators: Vec<SharedPtr<Enumerator>>,
-    pub underlying: Option<TypeRef>,
+    pub enumerators: Vec<OwnedPtr<Enumerator>>,
+    pub underlying: Option<TypeRef<Primitive>>,
     pub is_unchecked: bool,
     pub parent: WeakPtr<Module>,
     pub scope: Scope,
@@ -115,6 +216,51 @@ pub struct Enum {
     pub location: Location,
 }
 
+impl Enum {
+    pub fn underlying_type(&self) -> WeakPtr<Primitive> {
+        self.underlying.map_or(
+            Primitive::Byte, // Default value to return if `underlying == None`. TODO make this use the primitive cache!
+            |data_type| data_type.definition,
+        )
+    }
+
+    pub fn get_min_max_values(&self) -> Option<(i64, i64)> {
+        let values = self.enumerators.iter().map(
+            |enumerator| enumerator.borrow().value
+        );
+        let min = values.clone().min();
+        let max = values.max();
+
+        // There might not be a minimum value if the enum is empty.
+        if min.is_some() {
+            // A `min` existing guarantees a `max` does too, so it's safe to unwrap here.
+            Some((min.unwrap(), max.unwrap()))
+        } else {
+            None
+        }
+    }
+}
+
+impl Type for Enum {
+    fn get_concrete_type(&self) -> Types {
+        Types::Enum(&self)
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        self.underlying_type().borrow().is_fixed_size()
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        self.underlying_type().borrow().min_wire_size()
+    }
+}
+
+implement_Element_for!(Enum, "enum");
+implement_Entity_for!(Enum);
+implement_Container_for!(Enum, Enumerator, enumerators);
+implement_Contained_for!(Enum, Module);
+
+#[derive(Debug)]
 pub struct Enumerator {
     pub identifier: Identifier,
     pub value: i64,
@@ -125,13 +271,75 @@ pub struct Enumerator {
     pub location: Location,
 }
 
+implement_Element_for!(Enumerator, "enumerator");
+implement_Entity_for!(Enumerator);
+implement_Contained_for!(Enumerator, Enum);
+
+#[derive(Debug)]
 pub struct TypeAlias {
     pub identifier: Identifier,
     pub underlying: TypeRef,
+    pub parent: WeakPtr<Module>,
     pub comment: Option<DocComment>,
+    pub location: Location,
 }
 
-pub struct TypeRef<T: Type + ?Sized = dyn Type> {
+impl ScopedSymbol for TypeAlias {
+    fn scope(&self) -> &String {
+        self.underlying.scope()
+    }
+
+    fn parser_scope(&self) -> &String {
+        self.underlying.parser_scope()
+    }
+
+    fn raw_scope(&self) -> &Scope {
+        self.underlying.raw_scope()
+    }
+}
+
+impl Attributable for TypeAlias {
+    fn attributes(&self) -> &Vec<Attribute> {
+        self.underlying.attributes()
+    }
+
+    fn has_attribute(&self, directive: &str) -> bool {
+        self.underlying.has_attribute(directive)
+    }
+
+    fn get_attribute(&self, directive: &str) -> Option<&Vec<String>> {
+        self.underlying.get_attribute(directive)
+    }
+
+    fn get_raw_attribute(&self, directive: &str) -> Option<&Attribute> {
+        self.underlying.get_raw_attribute(directive)
+    }
+}
+
+impl Entity for TypeAlias {}
+
+impl Type for TypeAlias {
+    fn get_concrete_type(&self) -> Types {
+        Types::TypeAlias(&self)
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        self.underlying.definition.borrow().is_fixed_size()
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        self.underlying.definition.borrow().min_wire_size()
+    }
+}
+
+implement_Element_for!(TypeAlias, "type alias");
+implement_Symbol_for!(TypeAlias);
+implement_Named_Symbol_for!(TypeAlias);
+implement_Commentable_for!(TypeAlias);
+implement_Contained_for!(TypeAlias, Module);
+
+#[derive(Debug)]
+pub struct TypeRef<T: Element + ?Sized = dyn Type> {
     pub type_string: String,
     pub definition: WeakPtr<T>,
     pub is_optional: bool,
@@ -140,20 +348,104 @@ pub struct TypeRef<T: Type + ?Sized = dyn Type> {
     pub location: Location,
 }
 
-pub struct Identifier {
-    pub value: String,
-    pub location: Location,
+impl TypeRef {
+    pub fn is_bit_sequence_encodable(&self) -> bool {
+        self.is_optional && self.min_wire_size() == 0
+    }
 }
 
+// Technically, `TypeRef` is NOT a type; It represents somewhere that a type is referenced.
+// But, for convience, we implement type on it, so that users of the API can call methods on
+// the underlying type without having to first call `.definition().borrow()` all the time.
+impl Type for TypeRef {
+    fn get_concrete_type(&self) -> Types {
+        self.definition.borrow().get_concrete_type()
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        self.definition.borrow().is_fixed_size()
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        let underlying = self.definition.borrow();
+        if self.is_optional {
+            // TODO explain why classes and interfaces still take up 1 byte.
+            match underlying.kind() {
+                "class" | "interface" => 1,
+                _ => 0,
+            }
+        } else {
+            underlying.min_wire_size()
+        }
+    }
+}
+
+implement_Element_for!(TypeRef, "type reference");
+implement_Symbol_for!(TypeRef);
+implement_Scoped_Symbol_for!(TypeRef);
+implement_Attributable_for!(TypeRef);
+
+#[derive(Debug)]
 pub struct Sequence {
     pub element_type: TypeRef,
 }
 
+impl Sequence {
+    pub fn has_fixed_size_numeric_elements(&self) -> bool {
+        let definition = self.element_type.definition.borrow().get_concrete_type();
+
+        // If the elements are enums with an underlying type, check the underlying type instead.
+        if let Types::Enum(enum_def) = definition {
+            definition = enum_def.underlying_type().borrow().into();
+        }
+
+        if let Types::Primitive(primitive) = definition {
+            primitive.is_numeric_or_bool() && primitive.is_fixed_size()
+        } else {
+            false
+        }
+    }
+}
+
+impl Type for Sequence {
+    fn get_concrete_type(&self) -> Types {
+        Types::Sequence(&self)
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        false
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        1
+    }
+}
+
+implement_Element_for!(Sequence, "sequence");
+
+#[derive(Debug)]
 pub struct Dictionary {
     pub key_type: TypeRef,
     pub value_type: TypeRef,
 }
 
+impl Type for Dictionary {
+    fn get_concrete_type(&self) -> Types {
+        Types::Dictionary(&self)
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        false
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        1
+    }
+}
+
+implement_Element_for!(Dictionary, "dictionary");
+
+#[derive(Debug)]
 pub enum Primitive {
     Bool,
     Byte,
@@ -172,10 +464,72 @@ pub enum Primitive {
     String,
 }
 
+impl Primitive {
+    fn is_numeric(&self) -> bool {
+        matches!(self,
+            Self::Byte | Self::Short | Self::UShort | Self::Int | Self::UInt | Self::VarInt |
+            Self::VarUInt | Self::Long | Self::ULong | Self::VarLong | Self::VarULong |
+            Self::Float | Self::Double
+        )
+    }
+
+    fn is_numeric_or_bool(&self) -> bool {
+        self.is_numeric() || matches!(self, Self::Bool)
+    }
+}
+
+impl Type for Primitive {
+    fn get_concrete_type(&self) -> Types {
+        Types::Primitive(&self)
+    }
+
+    fn is_fixed_size(&self) -> bool {
+        matches!(self,
+            Self::Bool | Self::Byte | Self::Short | Self::UShort | Self::Int | Self::UInt |
+            Self::Long | Self::ULong | Self::Float | Self::Double
+        )
+    }
+
+    fn min_wire_size(&self) -> u32 {
+        match self {
+            Self::Bool => 1,
+            Self::Byte => 1,
+            Self::Short => 2,
+            Self::UShort => 2,
+            Self::Int => 4,
+            Self::UInt => 4,
+            Self::VarInt => 1,
+            Self::VarUInt => 1,
+            Self::Long => 8,
+            Self::ULong => 8,
+            Self::VarLong => 1,
+            Self::VarULong => 1,
+            Self::Float => 4,
+            Self::Double => 8,
+            Self::String => 1,
+        }
+    }
+}
+
+implement_Element_for!(Primitive, "primitive");
+
+#[derive(Clone, Debug)]
+pub struct Identifier {
+    pub value: String,
+    pub location: Location,
+}
+
+implement_Element_for!(Identifier, "identifier");
+implement_Symbol_for!(Identifier);
+
+#[derive(Clone, Debug)]
 pub struct Attribute {
     pub prefix: Option<String>,
     pub directive: String,
+    pub prefixed_directive: String,
     pub arguments: Vec<String>,
-    pub raw_directive: String,
     pub location: Location,
 }
+
+implement_Element_for!(Attribute, "attribute");
+implement_Symbol_for!(Attribute);

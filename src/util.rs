@@ -1,37 +1,62 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use std::ops::Deref;
-use std::rc::{Rc, Weak};
-use std::cell::{Ref, RefMut, RefCell};
+use std::cell::{Ref, RefCell, RefMut};
 
-pub struct SharedPtr<T: ?Sized>(Rc<RefCell<T>>);
+pub trait Ptr<T: ?Sized> {
+    fn borrow(&self) -> Ref<T>;
+    fn borrow_mut(&self) -> RefMut<T>;
+}
 
-impl<T> SharedPtr<T> {
-    //pub fn new(value: T) -> Self {
-    //    Rc::new(RefCell::new(value))
-    //}
-//
-    //pub fn downgrade(&self) -> WeakPtr<T> {
-    //    Rc::downgrade(self.0)
-    //}
+#[derive(Debug)]
+pub struct OwnedPtr<T> {
+    data: Box<RefCell<T>>,
+}
 
-    pub fn borrow(&self) -> Ref<'_, T> {
-        self.0.borrow()
+// TODO: explicitely de-implement these traits when negative traits bounds are stable.
+// Prevent OwnedPtr from being sent, or shared between threads, since it isn't thread safe.
+//impl<T> !Send for OwnedPtr<T> {}
+//impl<T> !Sync for OwnedPtr<T> {}
+
+impl<T> OwnedPtr<T> {
+    pub fn new(value: T) -> OwnedPtr<T> {
+        OwnedPtr {
+            data: Box::new(RefCell::new(value)),
+        }
     }
 
-    pub fn borrow_mut(&self) -> RefMut<'_, T> {
-        self.0.borrow_mut()
+    pub fn downgrade(&self) -> WeakPtr<T> {
+        WeakPtr {
+            data: &*self.data
+        }
     }
 }
 
-pub struct WeakPtr<T: ?Sized>(Weak<RefCell<T>>);
+impl<T> Ptr<T> for OwnedPtr<T> {
+    fn borrow(&self) -> Ref<T> {
+        self.data.borrow()
+    }
 
-impl <T> WeakPtr<T> {
-    //pub fn borrow(&self) -> Ref<'_, T> {
-    //    self.0.upgrade().unwrap().borrow()
-    //}
-//
-    //pub fn borrow_mut(&self) -> RefMut<'_, T> {
-    //    self.0.upgrade().unwrap().borrow_mut()
-    //}
+    fn borrow_mut(&self) -> RefMut<T> {
+        self.data.borrow_mut()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct WeakPtr<T: ?Sized> {
+    data: *const RefCell<T>
+}
+
+// TODO: explicitely de-implement these traits when negative traits bounds are stable.
+// Prevent WeakPtr from being sent, or shared between threads, since it isn't thread safe.
+//impl<T> !Send for WeakPtr<T> {}
+//impl<T> !Sync for WeakPtr<T> {}
+
+impl<T: ?Sized> Ptr<T> for WeakPtr<T> {
+    fn borrow(&self) -> Ref<T> {
+        (*self.data).borrow()
+    }
+
+    fn borrow_mut(&self) -> RefMut<T> {
+        (*self.data).borrow_mut()
+    }
 }
