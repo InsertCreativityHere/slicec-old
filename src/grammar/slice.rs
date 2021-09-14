@@ -172,6 +172,40 @@ pub struct Operation {
     pub location: Location,
 }
 
+impl Operation {
+    pub fn has_unstreamed_parameters(&self) -> bool {
+        // Operations can have at most 1 streamed parameter. So, if it has more than 1 parameter
+        // there must be unstreamed parameters. Otherwise we check if the 1 parameter is streamed.
+        match self.parameters.len() {
+            0 => false,
+            1 => !self.parameters[0].borrow().data_type.is_streamed,
+            _ => true,
+        }
+    }
+
+    pub fn has_unstreamed_return_elements(&self) -> bool {
+        // Operations can have at most 1 streamed return element. So, if it has more than 1 element
+        // there must be unstreamed elements. Otherwise we check if the 1 element is streamed.
+        match self.return_type.len() {
+            0 => false,
+            1 => !self.return_type[0].borrow().data_type.is_streamed,
+            _ => true,
+        }
+    }
+
+    pub fn get_unstreamed_parameters(&self) -> &[OwnedPtr<Parameter>] {
+        let length = self.parameters.len();
+        // Operations can have at most 1 streamed parameter, and it must be the last parameter.
+        if length > 0 && self.parameters[length-1].borrow().data_type.is_streamed {
+            // Return a slice of the parameter vector with the last parameter (which is streamed)
+            // removed from it. It is safe to unwrap here, because we know that `length > 0`.
+            self.parameters.split_last().unwrap().1
+        } else {
+            &self.parameters
+        }
+    }
+}
+
 implement_Element_for!(Operation, "operation");
 implement_Entity_for!(Operation);
 implement_Contained_for!(Operation, Interface);
@@ -343,6 +377,7 @@ pub struct TypeRef<T: Element + ?Sized = dyn Type> {
     pub type_string: String,
     pub definition: WeakPtr<T>,
     pub is_optional: bool,
+    pub is_streamed: bool,
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
     pub location: Location,
@@ -396,7 +431,7 @@ impl Sequence {
 
         // If the elements are enums with an underlying type, check the underlying type instead.
         if let Types::Enum(enum_def) = definition {
-            definition = enum_def.underlying_type().borrow().into();
+            definition = (&*enum_def.underlying_type().borrow()).into();
         }
 
         if let Types::Primitive(primitive) = definition {
