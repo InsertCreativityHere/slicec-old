@@ -1,6 +1,6 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::util::{OwnedPtr, WeakPtr};
+use crate::util::{Location, OwnedPtr, WeakPtr};
 
 use super::comments::DocComment;
 use super::slice::{Attribute, Identifier};

@@ -1,5 +1,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
+use crate::util::Location;
+
 use super::comments::*;
 use super::slice::*;
 use super::traits::*;

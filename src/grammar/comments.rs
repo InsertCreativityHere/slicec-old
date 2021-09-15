@@ -1,6 +1,6 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use super::util::*;
+use crate::util::Location;
 
 // TODO improve this to track the location of individual doc comment fields, so we can check for
 // comment validity: EX: making sure 'params' match the operation's actual parameters, etc.
