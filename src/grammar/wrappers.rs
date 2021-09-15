@@ -1,7 +1,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use super::slice::*;
 use super::comments::*;
+use super::slice::*;
 use super::traits::*;
 use super::util::*;
 

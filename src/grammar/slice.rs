@@ -35,7 +35,7 @@ pub struct Struct {
 
 impl Type for Struct {
     fn get_concrete_type(&self) -> Types {
-        Types::Struct(&self)
+        Types::Struct(self)
     }
 
     fn is_fixed_size(&self) -> bool {
@@ -72,7 +72,7 @@ pub struct Class {
 
 impl Type for Class {
     fn get_concrete_type(&self) -> Types {
-        Types::Class(&self)
+        Types::Class(self)
     }
 
     fn is_fixed_size(&self) -> bool {
@@ -142,7 +142,7 @@ pub struct Interface {
 
 impl Type for Interface {
     fn get_concrete_type(&self) -> Types {
-        Types::Interface(&self)
+        Types::Interface(self)
     }
 
     fn is_fixed_size(&self) -> bool {
@@ -196,7 +196,7 @@ impl Operation {
     pub fn get_unstreamed_parameters(&self) -> &[OwnedPtr<Parameter>] {
         let length = self.parameters.len();
         // Operations can have at most 1 streamed parameter, and it must be the last parameter.
-        if length > 0 && self.parameters[length-1].borrow().data_type.is_streamed {
+        if length > 0 && self.parameters[length - 1].borrow().data_type.is_streamed {
             // Return a slice of the parameter vector with the last parameter (which is streamed)
             // removed from it. It is safe to unwrap here, because we know that `length > 0`.
             self.parameters.split_last().unwrap().1
@@ -251,11 +251,12 @@ pub struct Enum {
 }
 
 impl Enum {
-    pub fn underlying_type(&self) -> WeakPtr<Primitive> {
-        self.underlying.map_or(
-            Primitive::Byte, // Default value to return if `underlying == None`. TODO make this use the primitive cache!
-            |data_type| data_type.definition,
-        )
+    pub fn underlying_type(&self) -> &WeakPtr<Primitive> {
+        //self.underlying.map_or(
+        //    Primitive::Byte, // Default value to return if `underlying == None`. TODO make this use the primitive cache!
+        //    |data_type| data_type.definition,
+        //)
+        unimplemented!()
     }
 
     pub fn get_min_max_values(&self) -> Option<(i64, i64)> {
@@ -277,7 +278,7 @@ impl Enum {
 
 impl Type for Enum {
     fn get_concrete_type(&self) -> Types {
-        Types::Enum(&self)
+        Types::Enum(self)
     }
 
     fn is_fixed_size(&self) -> bool {
@@ -354,7 +355,7 @@ impl Entity for TypeAlias {}
 
 impl Type for TypeAlias {
     fn get_concrete_type(&self) -> Types {
-        Types::TypeAlias(&self)
+        Types::TypeAlias(self)
     }
 
     fn is_fixed_size(&self) -> bool {
@@ -390,7 +391,7 @@ impl TypeRef {
 }
 
 // Technically, `TypeRef` is NOT a type; It represents somewhere that a type is referenced.
-// But, for convience, we implement type on it, so that users of the API can call methods on
+// But, for convenience, we implement type on it, so that users of the API can call methods on
 // the underlying type without having to first call `.definition().borrow()` all the time.
 impl Type for TypeRef {
     fn get_concrete_type(&self) -> Types {
@@ -427,11 +428,11 @@ pub struct Sequence {
 
 impl Sequence {
     pub fn has_fixed_size_numeric_elements(&self) -> bool {
-        let definition = self.element_type.definition.borrow().get_concrete_type();
+        let mut definition = self.element_type.definition.borrow().get_concrete_type();
 
         // If the elements are enums with an underlying type, check the underlying type instead.
         if let Types::Enum(enum_def) = definition {
-            definition = (&*enum_def.underlying_type().borrow()).into();
+            definition = enum_def.underlying_type().borrow().into()
         }
 
         if let Types::Primitive(primitive) = definition {
@@ -444,7 +445,7 @@ impl Sequence {
 
 impl Type for Sequence {
     fn get_concrete_type(&self) -> Types {
-        Types::Sequence(&self)
+        Types::Sequence(self)
     }
 
     fn is_fixed_size(&self) -> bool {
@@ -466,7 +467,7 @@ pub struct Dictionary {
 
 impl Type for Dictionary {
     fn get_concrete_type(&self) -> Types {
-        Types::Dictionary(&self)
+        Types::Dictionary(self)
     }
 
     fn is_fixed_size(&self) -> bool {
@@ -515,7 +516,7 @@ impl Primitive {
 
 impl Type for Primitive {
     fn get_concrete_type(&self) -> Types {
-        Types::Primitive(&self)
+        Types::Primitive(self)
     }
 
     fn is_fixed_size(&self) -> bool {
