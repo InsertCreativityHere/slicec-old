@@ -319,6 +319,10 @@ pub struct TypeAlias {
     pub location: Location,
 }
 
+// The `implement_trait_for` macros expect structs to store all it's data as fields on itself,
+// but TypeAliases store data in their underlying `TypeRef`, so we need to manually implement
+// some traits to forward to the underlying `TypeRef`, instead of being able to use macros.
+
 impl ScopedSymbol for TypeAlias {
     fn scope(&self) -> &String {
         self.underlying.scope()
@@ -547,7 +551,27 @@ impl Type for Primitive {
     }
 }
 
-implement_Element_for!(Primitive, "primitive");
+impl Element for Primitive {
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::Bool => "bool",
+            Self::Byte => "byte",
+            Self::Short => "short",
+            Self::UShort => "ushort",
+            Self::Int => "int",
+            Self::UInt => "uint",
+            Self::VarInt => "varint",
+            Self::VarUInt => "varuint",
+            Self::Long => "long",
+            Self::ULong => "ulong",
+            Self::VarLong => "varlong",
+            Self::VarULong => "varulong",
+            Self::Float => "float",
+            Self::Double => "double",
+            Self::String => "string",
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Identifier {
