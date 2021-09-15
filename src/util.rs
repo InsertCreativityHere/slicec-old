@@ -1,15 +1,13 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use std::cell::{Ref, RefCell, RefMut};
-
 pub trait Ptr<T: ?Sized> {
-    fn borrow(&self) -> Ref<T>;
-    fn borrow_mut(&self) -> RefMut<T>;
+    fn borrow(&self) -> &T;
+    unsafe fn borrow_mut(&mut self) -> &mut T;
 }
 
 #[derive(Debug)]
 pub struct OwnedPtr<T> {
-    data: Box<RefCell<T>>,
+    data: Box<T>,
 }
 
 // TODO: explicitely de-implement these traits when negative traits bounds are stable.
@@ -20,30 +18,30 @@ pub struct OwnedPtr<T> {
 impl<T> OwnedPtr<T> {
     pub fn new(value: T) -> OwnedPtr<T> {
         OwnedPtr {
-            data: Box::new(RefCell::new(value)),
+            data: Box::new(value),
         }
     }
 
     pub fn downgrade(&self) -> WeakPtr<T> {
         WeakPtr {
-            data: &*self.data
+            data: (&*self.data as *const T) as *mut T,
         }
     }
 }
 
 impl<T> Ptr<T> for OwnedPtr<T> {
-    fn borrow(&self) -> Ref<T> {
-        self.data.borrow()
+    fn borrow(&self) -> &T {
+        &self.data
     }
 
-    fn borrow_mut(&self) -> RefMut<T> {
-        self.data.borrow_mut()
+    unsafe fn borrow_mut(&mut self) -> &mut T {
+        &mut self.data
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct WeakPtr<T: ?Sized> {
-    data: *const RefCell<T>
+    data: *mut T,
 }
 
 // TODO: explicitely de-implement these traits when negative traits bounds are stable.
@@ -52,11 +50,13 @@ pub struct WeakPtr<T: ?Sized> {
 //impl<T> !Sync for WeakPtr<T> {}
 
 impl<T: ?Sized> Ptr<T> for WeakPtr<T> {
-    fn borrow(&self) -> Ref<T> {
-        (*self.data).borrow()
+    fn borrow(&self) -> &T {
+        unsafe {
+            self.data.as_ref().unwrap()
+        }
     }
 
-    fn borrow_mut(&self) -> RefMut<T> {
-        (*self.data).borrow_mut()
+    unsafe fn borrow_mut(&mut self) -> &mut T {
+        self.data.as_mut().unwrap()
     }
 }
