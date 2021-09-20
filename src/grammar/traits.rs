@@ -1,11 +1,10 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::util::{Location, OwnedPtr, WeakPtr};
-
 use super::comments::DocComment;
 use super::slice::{Attribute, Identifier};
-use super::util::*;
+use super::util::Scope;
 use super::wrappers::Types;
+use crate::util::{Location, OwnedPtr, WeakPtr};
 
 pub trait Element: std::fmt::Debug {
     fn kind(&self) -> &'static str;

@@ -1,11 +1,10 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::util::*;
-
 use super::comments::DocComment;
 use super::traits::*;
-use super::util::*;
+use super::util::Scope;
 use super::wrappers::*;
+use crate::util::*;
 
 #[derive(Debug)]
 pub struct Module {
@@ -183,9 +182,9 @@ impl Operation {
         }
     }
 
-    pub fn has_unstreamed_return_elements(&self) -> bool {
-        // Operations can have at most 1 streamed return element. So, if it has more than 1 element
-        // there must be unstreamed elements. Otherwise we check if the 1 element is streamed.
+    pub fn has_unstreamed_return_members(&self) -> bool {
+        // Operations can have at most 1 streamed return member. So, if it has more than 1 member
+        // there must be unstreamed members. Otherwise we check if the 1 member is streamed.
         match self.return_type.len() {
             0 => false,
             1 => !self.return_type[0].borrow().data_type.is_streamed,

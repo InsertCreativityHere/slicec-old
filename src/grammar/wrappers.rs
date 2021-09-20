@@ -1,11 +1,10 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::util::Location;
-
-use super::comments::*;
+use super::comments::DocComment;
 use super::slice::*;
 use super::traits::*;
-use super::util::*;
+use super::util::Scope;
+use crate::util::Location;
 
 #[derive(Debug)]
 pub enum Definition {
