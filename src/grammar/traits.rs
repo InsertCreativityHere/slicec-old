@@ -14,15 +14,23 @@ pub trait Symbol: Element {
     fn location(&self) -> &Location;
 }
 
-pub trait NamedSymbol: Symbol {
-    fn identifier(&self) -> &String;
-    fn raw_identifier(&self) -> &Identifier;
-}
-
 pub trait ScopedSymbol: Symbol {
-    fn scope(&self) -> &String;
+    fn module_scope(&self) -> &String;
     fn parser_scope(&self) -> &String;
     fn raw_scope(&self) -> &Scope;
+}
+
+pub trait NamedSymbol: ScopedSymbol {
+    fn identifier(&self) -> &String;
+    fn raw_identifier(&self) -> &Identifier;
+
+    fn module_scoped_identifier(&self) -> String {
+        self.module_scope().to_owned() + "::" + self.identifier()
+    }
+
+    fn parser_scoped_identifier(&self) -> String {
+        self.parser_scope().to_owned() + "::" + self.identifier()
+    }
 }
 
 pub trait Attributable: Symbol {
@@ -72,24 +80,10 @@ macro_rules! implement_Symbol_for {
     };
 }
 
-macro_rules! implement_Named_Symbol_for {
-    ($type:ty) => {
-        impl NamedSymbol for $type {
-            fn identifier(&self) -> &String {
-                &self.identifier.value
-            }
-
-            fn raw_identifier(&self) -> &Identifier {
-                &self.identifier
-            }
-        }
-    };
-}
-
 macro_rules! implement_Scoped_Symbol_for {
     ($type:ty) => {
         impl ScopedSymbol for $type {
-            fn scope(&self) -> &String {
+            fn module_scope(&self) -> &String {
                 &self.scope.raw_module_scope
             }
 
@@ -99,6 +93,20 @@ macro_rules! implement_Scoped_Symbol_for {
 
             fn raw_scope(&self) -> &Scope {
                 &self.scope
+            }
+        }
+    };
+}
+
+macro_rules! implement_Named_Symbol_for {
+    ($type:ty) => {
+        impl NamedSymbol for $type {
+            fn identifier(&self) -> &String {
+                &self.identifier.value
+            }
+
+            fn raw_identifier(&self) -> &Identifier {
+                &self.identifier
             }
         }
     };

@@ -63,7 +63,7 @@ forward_trait_for_Definition!(NamedSymbol,
 );
 
 forward_trait_for_Definition!(ScopedSymbol,
-    (scope, &String),
+    (module_scope, &String),
     (parser_scope, &String),
     (raw_scope, &Scope)
 );

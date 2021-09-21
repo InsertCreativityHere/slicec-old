@@ -323,8 +323,8 @@ pub struct TypeAlias {
 // some traits to forward to the underlying `TypeRef`, instead of being able to use macros.
 
 impl ScopedSymbol for TypeAlias {
-    fn scope(&self) -> &String {
-        self.underlying.scope()
+    fn module_scope(&self) -> &String {
+        self.underlying.module_scope()
     }
 
     fn parser_scope(&self) -> &String {
