@@ -1,9 +1,6 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::grammar::{
-    Class, DataMember, Definition, Enum, Enumerator, Exception, Interface, Module, Operation,
-    Parameter, Struct, TypeAlias,
-};
+use crate::grammar::*;
 use crate::slice_file::SliceFile;
 use crate::util::Ptr;
 
