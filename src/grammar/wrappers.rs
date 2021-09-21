@@ -8,6 +8,7 @@ use crate::util::Location;
 
 #[derive(Debug)]
 pub enum Definition {
+    Module(Module),
     Struct(Struct),
     Class(Class),
     Exception(Exception),
