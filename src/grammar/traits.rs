@@ -90,7 +90,7 @@ macro_rules! implement_Scoped_Symbol_for {
     ($type:ty) => {
         impl ScopedSymbol for $type {
             fn scope(&self) -> &String {
-                &self.scope.raw_scope
+                &self.scope.raw_module_scope
             }
 
             fn parser_scope(&self) -> &String {
