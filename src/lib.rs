@@ -3,6 +3,7 @@
 pub mod ast;
 pub mod error;
 pub mod grammar;
+pub mod ptr_visitor;
 pub mod slice_file;
 pub mod util;
 pub mod visitor;

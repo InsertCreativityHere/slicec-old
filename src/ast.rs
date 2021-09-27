@@ -1,8 +1,8 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::util::{OwnedPtr, Ptr, WeakPtr};
+use crate::util::{downgrade_as, OwnedPtr, Ptr, WeakPtr};
 use crate::grammar::*;
-use crate::visitor::Visitor;
+use crate::ptr_visitor::PtrVisitor;
 use std::collections::HashMap;
 
 pub struct Ast {
@@ -47,7 +47,8 @@ impl Ast {
         let primitive_ptr = OwnedPtr::new(primitive);
 
         // Insert an entry in the lookup table for the type, and cache the primitive's instance.
-        self.type_lookup_table.insert(identifier.to_owned(), primitive_ptr.downgrade());
+        let weak_ptr = downgrade_as!(primitive_ptr, dyn Type);
+        self.type_lookup_table.insert(identifier.to_owned(), weak_ptr);
         self.primitive_cache.insert(identifier, primitive_ptr);
     }
 
@@ -55,16 +56,15 @@ impl Ast {
         // Move the module onto the heap so it can be referenced via pointer.
         let module_ptr = OwnedPtr::new(module_def);
         // Add the module into the AST's entity lookup table.
-        self.entity_lookup_table.insert(
-            module_ptr.borrow().parser_scoped_identifier(), module_ptr.downgrade(),
-        );
+        let weak_ptr = downgrade_as!(module_ptr, dyn Entity);
+        self.entity_lookup_table.insert(module_ptr.borrow().parser_scoped_identifier(), weak_ptr);
 
         // Recursively visit it's contents and add them into the lookup table too.
         let mut visitor = LookupTableBuilder {
             type_lookup_table: &mut self.type_lookup_table,
             entity_lookup_table: &mut self.entity_lookup_table
         };
-        module_def.visit_with(&mut visitor);
+        module_ptr.visit_ptr_with(&mut visitor);
 
         // Store the module in the AST.
         self.ast.push(module_ptr);
@@ -127,82 +127,71 @@ struct LookupTableBuilder<'ast> {
     entity_lookup_table: &'ast mut HashMap<String, WeakPtr<dyn Entity>>,
 }
 
-impl<'ast> Visitor for LookupTableBuilder<'ast> {
-    fn visit_module_start(&mut self, module_def: &Module) {
-        for definition_ptr in module_def.contents {
-            let definition = definition_ptr.borrow();
-
-            let is_type = match definition {
-                Definition::Module(module_def)       => false,
-                Definition::Struct(struct_def)       => true,
-                Definition::Class(class_def)         => true,
-                Definition::Exception(exception_def) => false,
-                Definition::Interface(interface_def) => true,
-                Definition::Enum(enum_def)           => true,
-                Definition::TypeAlias(type_alias)    => true,
-            };
-
-            if is_type {
-                self.type_lookup_table.insert(
-                    definition.module_scoped_identifier(), definition_ptr.downgrade(),
-                );
-            }
-            self.entity_lookup_table.insert(
-                definition.parser_scoped_identifier(), definition_ptr.downgrade(),
-            );
-        }
+impl<'ast> LookupTableBuilder<'ast> {
+    fn add_type_entry<T: Type + Entity>(&mut self, definition: &OwnedPtr<T>) {
+        let identifier = definition.borrow().module_scoped_identifier();
+        let weak_ptr = downgrade_as!(definition, dyn Type);
+        self.type_lookup_table.insert(identifier, weak_ptr);
     }
 
-    fn visit_struct_start(&mut self, struct_def: &Struct) {
-        for member in struct_def.members {
-            self.entity_lookup_table.insert(
-                member.borrow().parser_scoped_identifier(), member.downgrade(),
-            );
-        }
+    fn add_entity_entry<T: Entity>(&mut self, definition: &OwnedPtr<T>) {
+        let identifier = definition.borrow().parser_scoped_identifier();
+        let weak_ptr = downgrade_as!(definition, dyn Entity);
+        self.entity_lookup_table.insert(identifier, weak_ptr);
+    }
+}
+
+impl<'ast> PtrVisitor for LookupTableBuilder<'ast> {
+    fn visit_module_start(&mut self, module_ptr: &OwnedPtr<Module>) {
+        self.add_entity_entry(module_ptr);
     }
 
-    fn visit_class_start(&mut self, class_def: &Class) {
-        for member in class_def.members {
-            self.entity_lookup_table.insert(
-                member.borrow().parser_scoped_identifier(), member.downgrade(),
-            );
-        }
+    fn visit_struct_start(&mut self, struct_ptr: &OwnedPtr<Struct>) {
+        self.add_type_entry(struct_ptr);
+        self.add_entity_entry(struct_ptr);
     }
 
-    fn visit_exception_start(&mut self, exception_def: &Exception) {
-        for member in exception_def.members {
-            self.entity_lookup_table.insert(
-                member.borrow().parser_scoped_identifier(), member.downgrade(),
-            );
-        }
+    fn visit_class_start(&mut self, class_ptr: &OwnedPtr<Class>) {
+        self.add_type_entry(class_ptr);
+        self.add_entity_entry(class_ptr);
     }
 
-    fn visit_interface_start(&mut self, interface_def: &Interface) {
-        for operation in interface_def.operations {
-            self.entity_lookup_table.insert(
-                operation.borrow().parser_scoped_identifier(), operation.downgrade(),
-            );
-        }
+    fn visit_exception_start(&mut self, exception_ptr: &OwnedPtr<Exception>) {
+        self.add_entity_entry(exception_ptr);
     }
 
-    fn visit_enum_start(&mut self, enum_def: &Enum) {
-        for enumerator in enum_def.enumerators {
-            self.entity_lookup_table.insert(
-                enumerator.borrow().parser_scoped_identifier(), enumerator.downgrade(),
-            );
-        }
+    fn visit_interface_start(&mut self, interface_ptr: &OwnedPtr<Interface>) {
+        self.add_type_entry(interface_ptr);
+        self.add_entity_entry(interface_ptr);
     }
 
-    fn visit_operation_start(&mut self, operation: &Operation) {
-        for parameter in operation.parameters {
-            self.entity_lookup_table.insert(
-                parameter.borrow().parser_scoped_identifier(), parameter.downgrade(),
-            );
-        }
-        for return_member in operation.return_type {
-            self.entity_lookup_table.insert(
-                return_member.borrow().parser_scoped_identifier(), return_member.downgrade(),
-            );
-        }
+    fn visit_enum_start(&mut self, enum_ptr: &OwnedPtr<Enum>) {
+        self.add_type_entry(enum_ptr);
+        self.add_entity_entry(enum_ptr);
+    }
+
+    fn visit_operation_start(&mut self, operation_ptr: &OwnedPtr<Operation>) {
+        self.add_entity_entry(operation_ptr);
+    }
+
+    fn visit_type_alias(&mut self, type_alias_ptr: &OwnedPtr<TypeAlias>) {
+        self.add_type_entry(type_alias_ptr);
+        self.add_entity_entry(type_alias_ptr);
+    }
+
+    fn visit_data_member(&mut self, data_member_ptr: &OwnedPtr<DataMember>) {
+        self.add_entity_entry(data_member_ptr);
+    }
+
+    fn visit_parameter(&mut self, parameter_ptr: &OwnedPtr<Parameter>) {
+        self.add_entity_entry(parameter_ptr);
+    }
+
+    fn visit_return_member(&mut self, parameter_ptr: &OwnedPtr<Parameter>) {
+        self.add_entity_entry(parameter_ptr);
+    }
+
+    fn visit_enumerator(&mut self, enumerator_ptr: &OwnedPtr<Enumerator>) {
+        self.add_entity_entry(enumerator_ptr);
     }
 }

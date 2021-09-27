@@ -46,13 +46,13 @@ impl Module {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_module_start(self);
         for definition in self.contents {
-            match definition.borrow() {
-                Definition::Struct(struct_def) => struct_def.visit_with(visitor),
-                Definition::Class(class_def) => class_def.visit_with(visitor),
-                Definition::Exception(exception_def) => exception_def.visit_with(visitor),
-                Definition::Interface(interface_def) => interface_def.visit_with(visitor),
-                Definition::Enum(enum_def) => enum_def.visit_with(visitor),
-                Definition::TypeAlias(type_alias) => type_alias.visit_with(visitor),
+            match definition {
+                Definition::Struct(struct_def)       => struct_def.borrow().visit_with(visitor),
+                Definition::Class(class_def)         => class_def.borrow().visit_with(visitor),
+                Definition::Exception(exception_def) => exception_def.borrow().visit_with(visitor),
+                Definition::Interface(interface_def) => interface_def.borrow().visit_with(visitor),
+                Definition::Enum(enum_def)           => enum_def.borrow().visit_with(visitor),
+                Definition::TypeAlias(type_alias)    => type_alias.borrow().visit_with(visitor),
             }
         }
         visitor.visit_module_end(self);
