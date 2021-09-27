@@ -2,7 +2,6 @@
 
 use crate::grammar::*;
 use crate::slice_file::SliceFile;
-use crate::util::Ptr;
 
 pub trait Visitor {
     fn visit_file_start(&mut self, slice_file: &SliceFile) {}

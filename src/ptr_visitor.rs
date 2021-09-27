@@ -1,7 +1,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
 use crate::grammar::*;
-use crate::util::{OwnedPtr, Ptr};
+use crate::util::OwnedPtr;
 
 pub trait PtrVisitor {
     fn visit_module_start(&mut self, module_ptr: &OwnedPtr<Module>) {}

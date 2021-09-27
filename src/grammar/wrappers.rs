@@ -2,7 +2,7 @@
 
 use super::slice::*;
 use super::traits::*;
-use crate::util::{OwnedPtr, Ptr};
+use crate::util::OwnedPtr;
 
 #[derive(Debug)]
 pub enum Definition {

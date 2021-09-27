@@ -1,6 +1,8 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::util::{downgrade_as, OwnedPtr, Ptr, WeakPtr};
+use crate::downgrade_as;
+
+use crate::util::{OwnedPtr, WeakPtr};
 use crate::grammar::*;
 use crate::ptr_visitor::PtrVisitor;
 use std::collections::HashMap;
@@ -128,13 +130,13 @@ struct LookupTableBuilder<'ast> {
 }
 
 impl<'ast> LookupTableBuilder<'ast> {
-    fn add_type_entry<T: Type + Entity>(&mut self, definition: &OwnedPtr<T>) {
+    fn add_type_entry<T: Type + Entity + 'static>(&mut self, definition: &OwnedPtr<T>) {
         let identifier = definition.borrow().module_scoped_identifier();
-        let weak_ptr = downgrade_as!(definition, dyn Type);
+        let weak_ptr = downgrade_as!(definition, dyn Type + 'static);
         self.type_lookup_table.insert(identifier, weak_ptr);
     }
 
-    fn add_entity_entry<T: Entity>(&mut self, definition: &OwnedPtr<T>) {
+    fn add_entity_entry<T: Entity + 'static>(&mut self, definition: &OwnedPtr<T>) {
         let identifier = definition.borrow().parser_scoped_identifier();
         let weak_ptr = downgrade_as!(definition, dyn Entity);
         self.entity_lookup_table.insert(identifier, weak_ptr);

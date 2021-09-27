@@ -10,17 +10,82 @@ pub struct Location {
     pub file: String,
 }
 
+#[derive(Clone, Debug)]
 pub struct OwnedPtr<T: ?Sized> {
     // `UnsafeCell` is a magic type, and the ONLY way to signal to the Rust compiler that this data
     // has interior mutability semantics. No other type can work.
     data: Rc<UnsafeCell<T>>,
 }
 
+impl<T: Sized> OwnedPtr<T> {
+    pub fn new(value: T) -> Self {
+        OwnedPtr { data: Rc::new(UnsafeCell::new(value)) }
+    }
+}
+
+impl<T: ?Sized> OwnedPtr<T> {
+    pub fn downgrade(&self) -> WeakPtr<T> {
+        WeakPtr { data: &*self.data }
+    }
+
+    pub fn into_inner(self) -> Rc<UnsafeCell<T>> {
+        self.data
+    }
+
+    pub fn borrow<'ptr>(&'ptr self) -> &'ptr T {
+        &*self.data.get()
+    }
+
+    pub unsafe fn borrow_mut<'ptr>(&'ptr self) -> &'ptr mut T {
+        self.data.get_mut()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct WeakPtr<T: ?Sized> {
     data: *const UnsafeCell<T>,
 }
 
+impl<T: ?Sized> WeakPtr<T> {
+    // TODO
+    // This isn't marked as unsafe because it's assumed all WeakPtr live inside the AST, alongside
+    // the OwnedPtr. Since the entire AST goes out of scope at the same time when the program ends,
+    // it's impossible to have a dangling pointer here, and so, this function is safe.
+    pub fn borrow(&self) -> &T {
+        &*(*self.data).get()
+    }
 
+    pub fn into_inner(self) -> *const UnsafeCell<T> {
+        self.data
+    }
+}
+
+// TODO
+// These are only temporary because CoerceUnsized is still marked as unstable. When they are FINALLY
+// stabilized, we should delete them and let the compiler do the coercing for us.
+
+#[macro_export]
+macro_rules! cast_owned_as {
+    ($owned:expr, $new_type:ty) => {{
+        let inner: Rc<UnsafeCell<$new_type>> = $owned.data;
+        OwnedPtr {data: inner}
+    }};
+}
+
+#[macro_export]
+macro_rules! cast_weak_as {
+    ($weak:expr, $new_type:ty) => {{
+        let inner: *const std::cell::UnsafeCell<$new_type> = $weak.into_inner();
+        WeakPtr {data: inner}
+    }};
+}
+
+#[macro_export]
+macro_rules! downgrade_as {
+    ($owned:expr, $new_type:ty) => {
+        crate::cast_weak_as!($owned.downgrade(), $new_type)
+    };
+}
 
 
 
@@ -36,17 +101,11 @@ pub struct WeakPtr<T: ?Sized> {
 // WeakPtr just store a *RefCell<T>. This still lets us borrow things, but also enforces the borrow
 // checking rules at runtime so we can avoid Undefined Behavior... Not sure how important it'll be.
 // But the downside here is that the API will have to return and deal with `Ref` instead of `&`.
-
+/*
 
 pub trait Ptr<T: ?Sized> {
     fn borrow(&self) -> &T;
     unsafe fn borrow_mut(&mut self) -> &mut T;
-}
-
-// TODO maybe make this take an unsized type?
-#[derive(Debug)]
-pub struct OwnedPtr<T> {
-    data: Box<T>,
 }
 
 impl<T> OwnedPtr<T> {
@@ -98,10 +157,6 @@ impl<T> Ptr<T> for OwnedPtr<T> {
 // But we just raw dereference this thing. It could totally break if the OwnedPtr isn't around.
 // This is unlikely because the AST is effectively static, but you never know.
 
-#[derive(Debug)]
-pub struct WeakPtr<T: ?Sized> {
-    data: *mut T,
-}
 
 // TODO: add this CoerceUnsized is stabalized
 // Also, maybe add it to OwnedPtr if we make that Unsized as well...
@@ -119,10 +174,4 @@ impl<T: ?Sized> Ptr<T> for WeakPtr<T> {
     }
 }
 
-impl<T: ?Sized> Clone for WeakPtr<T> {
-    fn clone(&self) -> Self {
-        Self {
-            data: self.data,
-        }
-    }
-}
+*/
