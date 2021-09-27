@@ -9,7 +9,7 @@ use crate::util::*;
 #[derive(Debug)]
 pub struct Module {
     pub identifier: Identifier,
-    pub contents: Vec<OwnedPtr<Definition>>,
+    pub contents: Vec<Definition>,
     pub parent: Option<WeakPtr<Module>>,
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
@@ -54,7 +54,7 @@ impl Type for Struct {
 
 implement_Element_for!(Struct, "struct");
 implement_Entity_for!(Struct);
-implement_Container_for!(Struct, DataMember, members);
+implement_Container_for!(Struct, OwnedPtr<DataMember>, members);
 implement_Contained_for!(Struct, Module);
 
 #[derive(Debug)]
@@ -91,7 +91,7 @@ impl Type for Class {
 
 implement_Element_for!(Class, "class");
 implement_Entity_for!(Class);
-implement_Container_for!(Class, DataMember, members);
+implement_Container_for!(Class, OwnedPtr<DataMember>, members);
 implement_Contained_for!(Class, Module);
 
 #[derive(Debug)]
@@ -108,7 +108,7 @@ pub struct Exception {
 
 implement_Element_for!(Exception, "exception");
 implement_Entity_for!(Exception);
-implement_Container_for!(Exception, DataMember, members);
+implement_Container_for!(Exception, OwnedPtr<DataMember>, members);
 implement_Contained_for!(Exception, Module);
 
 #[derive(Debug)]
@@ -116,7 +116,7 @@ pub struct DataMember {
     pub identifier: Identifier,
     pub data_type: TypeRef,
     pub tag: Option<u32>,
-    pub parent: WeakPtr<dyn Container<DataMember>>,
+    pub parent: WeakPtr<dyn Container<OwnedPtr<DataMember>>>,
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
     pub comment: Option<DocComment>,
@@ -125,7 +125,7 @@ pub struct DataMember {
 
 implement_Element_for!(DataMember, "data member");
 implement_Entity_for!(DataMember);
-implement_Contained_for!(DataMember, dyn Container<DataMember>);
+implement_Contained_for!(DataMember, dyn Container<OwnedPtr<DataMember>>);
 
 #[derive(Debug)]
 pub struct Interface {
@@ -156,7 +156,7 @@ impl Type for Interface {
 
 implement_Element_for!(Interface, "interface");
 implement_Entity_for!(Interface);
-implement_Container_for!(Interface, Operation, operations);
+implement_Container_for!(Interface, OwnedPtr<Operation>, operations);
 implement_Contained_for!(Interface, Module);
 
 #[derive(Debug)]
@@ -291,7 +291,7 @@ impl Type for Enum {
 
 implement_Element_for!(Enum, "enum");
 implement_Entity_for!(Enum);
-implement_Container_for!(Enum, Enumerator, enumerators);
+implement_Container_for!(Enum, OwnedPtr<Enumerator>, enumerators);
 implement_Contained_for!(Enum, Module);
 
 #[derive(Debug)]

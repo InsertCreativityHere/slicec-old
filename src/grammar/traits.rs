@@ -4,7 +4,7 @@ use super::comments::DocComment;
 use super::slice::{Attribute, Identifier};
 use super::util::Scope;
 use super::wrappers::Types;
-use crate::util::{Location, OwnedPtr, WeakPtr};
+use crate::util::{Location, WeakPtr};
 
 pub trait Element: std::fmt::Debug {
     fn kind(&self) -> &'static str;
@@ -46,8 +46,8 @@ pub trait Commentable: Symbol {
 
 pub trait Entity: NamedSymbol + ScopedSymbol + Attributable + Commentable {}
 
-pub trait Container<T: Entity>: Entity {
-    fn contents(&self) -> &Vec<OwnedPtr<T>>;
+pub trait Container<T>: Entity {
+    fn contents(&self) -> &Vec<T>;
 }
 
 pub trait Contained<T: Entity + ?Sized>: Entity {
@@ -166,7 +166,7 @@ macro_rules! implement_Entity_for {
 macro_rules! implement_Container_for {
     ($type:ty, $contained_type:ty, $field_name:ident) => {
         impl Container<$contained_type> for $type {
-            fn contents(&self) -> &Vec<OwnedPtr<$contained_type>> {
+            fn contents(&self) -> &Vec<$contained_type> {
                 &self.$field_name
             }
         }
