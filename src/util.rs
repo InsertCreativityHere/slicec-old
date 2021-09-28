@@ -10,7 +10,7 @@ pub struct Location {
     pub file: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct OwnedPtr<T: ?Sized> {
     // `UnsafeCell` is a magic type, and the ONLY way to signal to the Rust compiler that this data
     // has interior mutability semantics. No other type can work.
@@ -46,7 +46,13 @@ impl<T: ?Sized> OwnedPtr<T> {
     }
 }
 
-#[derive(Clone, Debug)]
+impl<T: ?Sized> Clone for OwnedPtr<T> {
+    fn clone(&self) -> Self {
+        OwnedPtr { data: self.data.clone() }
+    }
+}
+
+#[derive(Debug)]
 pub struct WeakPtr<T: ?Sized> {
     data: Option<*const UnsafeCell<T>>,
 }
@@ -74,6 +80,12 @@ impl<T: ?Sized> WeakPtr<T> {
     // TODO explaine why this isn't marked unsafe!
     pub fn borrow(&self) -> &T {
         unsafe { &*(*self.data.unwrap()).get() }
+    }
+}
+
+impl<T: ?Sized> Clone for WeakPtr<T> {
+    fn clone(&self) -> Self {
+        WeakPtr { data: self.data }
     }
 }
 
