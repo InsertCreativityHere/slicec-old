@@ -3,6 +3,8 @@
 use crate::grammar::*;
 use crate::slice_file::SliceFile;
 
+// Keep parameter names for doc generation, even if they're unused in the default implementations.
+#[allow(unused_variables)]
 pub trait Visitor {
     fn visit_file_start(&mut self, slice_file: &SliceFile) {}
     fn visit_file_end(&mut self, slice_file: &SliceFile) {}
@@ -34,7 +36,7 @@ pub trait Visitor {
 impl SliceFile {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_file_start(self);
-        for module_def in self.contents {
+        for module_def in &self.contents {
             module_def.borrow().visit_with(visitor);
         }
         visitor.visit_file_end(self);
@@ -44,8 +46,9 @@ impl SliceFile {
 impl Module {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_module_start(self);
-        for definition in self.contents {
+        for definition in &self.contents {
             match definition {
+                Definition::Module(module_def)       => module_def.borrow().visit_with(visitor),
                 Definition::Struct(struct_def)       => struct_def.borrow().visit_with(visitor),
                 Definition::Class(class_def)         => class_def.borrow().visit_with(visitor),
                 Definition::Exception(exception_def) => exception_def.borrow().visit_with(visitor),
@@ -61,7 +64,7 @@ impl Module {
 impl Struct {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_struct_start(self);
-        for data_member in self.members {
+        for data_member in &self.members {
             data_member.borrow().visit_with(visitor);
         }
         visitor.visit_struct_end(self);
@@ -71,7 +74,7 @@ impl Struct {
 impl Class {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_class_start(self);
-        for data_member in self.members {
+        for data_member in &self.members {
             data_member.borrow().visit_with(visitor);
         }
         visitor.visit_class_end(self);
@@ -81,7 +84,7 @@ impl Class {
 impl Exception {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_exception_start(self);
-        for data_member in self.members {
+        for data_member in &self.members {
             data_member.borrow().visit_with(visitor);
         }
         visitor.visit_exception_end(self);
@@ -91,7 +94,7 @@ impl Exception {
 impl Interface {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_interface_start(self);
-        for operation in self.operations {
+        for operation in &self.operations {
             operation.borrow().visit_with(visitor);
         }
         visitor.visit_interface_end(self);
@@ -101,7 +104,7 @@ impl Interface {
 impl Enum {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_enum_start(self);
-        for enumerators in self.enumerators {
+        for enumerators in &self.enumerators {
             enumerators.borrow().visit_with(visitor);
         }
         visitor.visit_enum_end(self);
@@ -111,10 +114,10 @@ impl Enum {
 impl Operation {
     pub fn visit_with(&self, visitor: &mut impl Visitor) {
         visitor.visit_operation_start(self);
-        for parameter in self.parameters {
+        for parameter in &self.parameters {
             parameter.borrow().visit_with(visitor, true);
         }
-        for return_members in self.return_type {
+        for return_members in &self.return_type {
             return_members.borrow().visit_with(visitor, false);
         }
         visitor.visit_operation_end(self);

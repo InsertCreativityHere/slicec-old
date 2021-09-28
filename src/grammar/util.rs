@@ -2,10 +2,10 @@
 
 #[derive(Clone, Debug)]
 pub struct Scope {
-    pub module_scope: Vec<String>,
     pub raw_module_scope: String,
-    pub parser_scope: Vec<String>,
+    pub module_scope: Vec<String>,
     pub raw_parser_scope: String,
+    pub parser_scope: Vec<String>,
 }
 
 impl Scope {
@@ -17,10 +17,10 @@ impl Scope {
         let parser_scope = vec![name.to_owned()];
 
         Scope {
-            module_scope,
             raw_module_scope: module_scope.join("::"),
-            parser_scope,
+            module_scope,
             raw_parser_scope: parser_scope.join("::"),
+            parser_scope,
         }
     }
 
@@ -33,10 +33,10 @@ impl Scope {
         parser_scope.push(name.to_owned());
 
         Scope {
-            module_scope,
             raw_module_scope: module_scope.join("::"),
-            parser_scope,
+            module_scope,
             raw_parser_scope: parser_scope.join("::"),
+            parser_scope,
         }
     }
 }

@@ -2,9 +2,9 @@
 
 use crate::downgrade_as;
 
-use crate::util::{OwnedPtr, WeakPtr};
 use crate::grammar::*;
 use crate::ptr_visitor::PtrVisitor;
+use crate::util::{OwnedPtr, WeakPtr};
 use std::collections::HashMap;
 
 pub struct Ast {
@@ -64,7 +64,7 @@ impl Ast {
         // Recursively visit it's contents and add them into the lookup table too.
         let mut visitor = LookupTableBuilder {
             type_lookup_table: &mut self.type_lookup_table,
-            entity_lookup_table: &mut self.entity_lookup_table
+            entity_lookup_table: &mut self.entity_lookup_table,
         };
         module_ptr.visit_ptr_with(&mut visitor);
 
@@ -74,8 +74,8 @@ impl Ast {
 
     pub fn lookup_type(&self, name: &str, scope: &Scope) -> Option<&WeakPtr<dyn Type>> {
         // Paths starting with '::' are absolute paths, which can be directly looked up.
-        if name.starts_with("::") {
-            return self.type_lookup_table.get(&name[2..]);
+        if let Some(unprefixed) = name.strip_prefix("::") {
+            return self.type_lookup_table.get(unprefixed);
         }
 
         // Types are looked up by module scope, since types can only be defined inside modules.
@@ -99,8 +99,8 @@ impl Ast {
 
     pub fn lookup_entity(&self, name: &str, scope: &Scope) -> Option<&WeakPtr<dyn Entity>> {
         // Paths starting with '::' are absolute paths, which can be directly looked up.
-        if name.starts_with("::") {
-            return self.entity_lookup_table.get(&name[2..]);
+        if let Some(unprefixed) = name.strip_prefix("::") {
+            return self.entity_lookup_table.get(unprefixed);
         }
 
         // Entites are looked up by parser scope, since entities can be defined anywhere, not

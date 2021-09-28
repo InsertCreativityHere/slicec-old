@@ -3,6 +3,8 @@
 use crate::grammar::*;
 use crate::util::OwnedPtr;
 
+// Keep parameter names for doc generation, even if they're unused in the default implementations.
+#[allow(unused_variables)]
 pub trait PtrVisitor {
     fn visit_module_start(&mut self, module_ptr: &OwnedPtr<Module>) {}
     fn visit_module_end(&mut self, module_ptr: &OwnedPtr<Module>) {}
@@ -31,8 +33,9 @@ pub trait PtrVisitor {
 impl OwnedPtr<Module> {
     pub fn visit_ptr_with(&self, visitor: &mut impl PtrVisitor) {
         visitor.visit_module_start(self);
-        for definition in self.borrow().contents {
+        for definition in &self.borrow().contents {
             match definition {
+                Definition::Module(module_ptr)        => module_ptr.visit_ptr_with(visitor),
                 Definition::Struct(struct_ptr)        => struct_ptr.visit_ptr_with(visitor),
                 Definition::Class(class_ptr)          => class_ptr.visit_ptr_with(visitor),
                 Definition::Exception(exception_ptr)  => exception_ptr.visit_ptr_with(visitor),
@@ -48,7 +51,7 @@ impl OwnedPtr<Module> {
 impl OwnedPtr<Struct> {
     pub fn visit_ptr_with(&self, visitor: &mut impl PtrVisitor) {
         visitor.visit_struct_start(self);
-        for data_member in self.borrow().members {
+        for data_member in &self.borrow().members {
             data_member.visit_ptr_with(visitor);
         }
         visitor.visit_struct_end(self);
@@ -58,7 +61,7 @@ impl OwnedPtr<Struct> {
 impl OwnedPtr<Class> {
     pub fn visit_ptr_with(&self, visitor: &mut impl PtrVisitor) {
         visitor.visit_class_start(self);
-        for data_member in self.borrow().members {
+        for data_member in &self.borrow().members {
             data_member.visit_ptr_with(visitor);
         }
         visitor.visit_class_end(self);
@@ -68,7 +71,7 @@ impl OwnedPtr<Class> {
 impl OwnedPtr<Exception> {
     pub fn visit_ptr_with(&self, visitor: &mut impl PtrVisitor) {
         visitor.visit_exception_start(self);
-        for data_member in self.borrow().members {
+        for data_member in &self.borrow().members {
             data_member.visit_ptr_with(visitor);
         }
         visitor.visit_exception_end(self);
@@ -78,7 +81,7 @@ impl OwnedPtr<Exception> {
 impl OwnedPtr<Interface> {
     pub fn visit_ptr_with(&self, visitor: &mut impl PtrVisitor) {
         visitor.visit_interface_start(self);
-        for operation in self.borrow().operations {
+        for operation in &self.borrow().operations {
             operation.visit_ptr_with(visitor);
         }
         visitor.visit_interface_end(self);
@@ -88,7 +91,7 @@ impl OwnedPtr<Interface> {
 impl OwnedPtr<Enum> {
     pub fn visit_ptr_with(&self, visitor: &mut impl PtrVisitor) {
         visitor.visit_enum_start(self);
-        for enumerators in self.borrow().enumerators {
+        for enumerators in &self.borrow().enumerators {
             enumerators.visit_ptr_with(visitor);
         }
         visitor.visit_enum_end(self);
@@ -98,10 +101,10 @@ impl OwnedPtr<Enum> {
 impl OwnedPtr<Operation> {
     pub fn visit_ptr_with(&self, visitor: &mut impl PtrVisitor) {
         visitor.visit_operation_start(self);
-        for parameter in self.borrow().parameters {
+        for parameter in &self.borrow().parameters {
             parameter.visit_ptr_with(visitor, true);
         }
-        for return_members in self.borrow().return_type {
+        for return_members in &self.borrow().return_type {
             return_members.visit_ptr_with(visitor, false);
         }
         visitor.visit_operation_end(self);
