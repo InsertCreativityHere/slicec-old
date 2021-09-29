@@ -61,8 +61,8 @@ pub trait Type: Element {
 }
 
 macro_rules! implement_Element_for {
-    ($type:ty, $kind_string:literal) => {
-        impl Element for $type {
+    ($type:ty, $kind_string:literal$(, $($bounds:tt)+)?) => {
+        impl$(<T: $($bounds)+>)? Element for $type {
             fn kind(&self) -> &'static str {
                 $kind_string
             }
@@ -71,8 +71,8 @@ macro_rules! implement_Element_for {
 }
 
 macro_rules! implement_Symbol_for {
-    ($type:ty) => {
-        impl Symbol for $type {
+    ($type:ty$(, $($bounds:tt)+)?) => {
+        impl$(<T: $($bounds)+>)? Symbol for $type {
             fn location(&self) -> &Location {
                 &self.location
             }
@@ -81,8 +81,8 @@ macro_rules! implement_Symbol_for {
 }
 
 macro_rules! implement_Scoped_Symbol_for {
-    ($type:ty) => {
-        impl ScopedSymbol for $type {
+    ($type:ty$(, $($bounds:tt)+)?) => {
+        impl$(<T: $($bounds)+>)? ScopedSymbol for $type {
             fn module_scope(&self) -> &String {
                 &self.scope.raw_module_scope
             }
@@ -113,8 +113,8 @@ macro_rules! implement_Named_Symbol_for {
 }
 
 macro_rules! implement_Attributable_for {
-    ($type:ty) => {
-        impl Attributable for $type {
+    ($type:ty$(, $($bounds:tt)+)?) => {
+        impl$(<T: $($bounds)+>)? Attributable for $type {
             fn attributes(&self) -> &Vec<Attribute> {
                 &self.attributes
             }

@@ -387,7 +387,7 @@ pub struct TypeRef<T: Element + ?Sized = dyn Type> {
     pub location: Location,
 }
 
-impl TypeRef {
+impl<T: Element + ?Sized + Type> TypeRef<T> {
     pub fn is_bit_sequence_encodable(&self) -> bool {
         self.is_optional && self.min_wire_size() == 0
     }
@@ -396,7 +396,7 @@ impl TypeRef {
 // Technically, `TypeRef` is NOT a type; It represents somewhere that a type is referenced.
 // But, for convenience, we implement type on it, so that users of the API can call methods on
 // the underlying type without having to first call `.definition().borrow()` all the time.
-impl Type for TypeRef {
+impl<T: Element + ?Sized + Type> Type for TypeRef<T> {
     fn get_concrete_type(&self) -> Types {
         self.definition.borrow().get_concrete_type()
     }
@@ -419,10 +419,10 @@ impl Type for TypeRef {
     }
 }
 
-implement_Element_for!(TypeRef, "type reference");
-implement_Symbol_for!(TypeRef);
-implement_Scoped_Symbol_for!(TypeRef);
-implement_Attributable_for!(TypeRef);
+implement_Element_for!(TypeRef<T>, "type reference", Element + ?Sized);
+implement_Symbol_for!(TypeRef<T>, Element + ?Sized);
+implement_Scoped_Symbol_for!(TypeRef<T>, Element + ?Sized);
+implement_Attributable_for!(TypeRef<T>, Element + ?Sized);
 
 #[derive(Debug)]
 pub struct Sequence {
