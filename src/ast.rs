@@ -2,6 +2,7 @@
 
 use crate::downgrade_as;
 
+use crate::cast_owned_as;
 use crate::grammar::*;
 use crate::ptr_visitor::PtrVisitor;
 use crate::util::{OwnedPtr, WeakPtr};
@@ -11,6 +12,7 @@ pub struct Ast {
     ast: Vec<OwnedPtr<Module>>,
     type_lookup_table: HashMap<String, WeakPtr<dyn Type>>,
     entity_lookup_table: HashMap<String, WeakPtr<dyn Entity>>,
+    anonymous_types: Vec<OwnedPtr<dyn Type>>,
     primitive_cache: HashMap<&'static str, OwnedPtr<Primitive>>,
 }
 
@@ -20,6 +22,7 @@ impl Ast {
             ast: Vec::new(),
             type_lookup_table: HashMap::new(),
             entity_lookup_table: HashMap::new(),
+            anonymous_types: Vec::new(),
             primitive_cache: HashMap::new(),
         };
 
@@ -60,6 +63,12 @@ impl Ast {
 
         // Store the module in the AST.
         self.ast.push(module_ptr);
+    }
+
+    fn add_anonymous_type(&mut self, anonymous_type: impl Type) -> &OwnedPtr<dyn Type> {
+        let type_ptr = cast_owned_as!(OwnedPtr::new(anonymous_type), dyn Type);
+        self.anonymous_types.push(type_ptr);
+        &self.anonymous_types.last().unwrap()
     }
 
     fn add_cached_primitive(&mut self, identifier: &'static str, primitive: Primitive) {
