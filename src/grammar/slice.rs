@@ -40,14 +40,14 @@ impl Type for Struct {
     fn is_fixed_size(&self) -> bool {
         // A struct is fixed size if and only if all it's members are fixed size.
         self.members.iter().all(
-            |member| member.borrow().data_type.definition.borrow().is_fixed_size()
+            |member| member.borrow().data_type.definition().is_fixed_size()
         )
     }
 
     fn min_wire_size(&self) -> u32 {
         // The min-wire-size of a struct is the min-wire-size of all its members added together.
         self.members.iter().map(
-            |member| member.borrow().data_type.definition.borrow().min_wire_size()
+            |member| member.borrow().data_type.definition().min_wire_size()
         ).sum()
     }
 }
@@ -77,14 +77,14 @@ impl Type for Class {
     fn is_fixed_size(&self) -> bool {
         // A class is fixed size if and only if all it's members are fixed size.
         self.members.iter().all(
-            |member| member.borrow().data_type.definition.borrow().is_fixed_size()
+            |member| member.borrow().data_type.definition().is_fixed_size()
         )
     }
 
     fn min_wire_size(&self) -> u32 {
         // The min-wire-size of a class is the min-wire-size of all its members added together.
         self.members.iter().map(
-            |member| member.borrow().data_type.definition.borrow().min_wire_size()
+            |member| member.borrow().data_type.definition().min_wire_size()
         ).sum()
     }
 }
@@ -125,7 +125,7 @@ pub struct DataMember {
 
 implement_Element_for!(DataMember, "data member");
 implement_Entity_for!(DataMember);
-implement_Contained_for!(DataMember, dyn Container<OwnedPtr<DataMember>>);
+implement_Contained_for!(DataMember, dyn Container<OwnedPtr<DataMember>> + 'static);
 
 #[derive(Debug)]
 pub struct Interface {
@@ -250,12 +250,14 @@ pub struct Enum {
 }
 
 impl Enum {
-    pub fn underlying_type(&self) -> &WeakPtr<Primitive> {
-        //self.underlying.map_or(
-        //    Primitive::Byte, // Default value to return if `underlying == None`. TODO make this use the primitive cache!
-        //    |data_type| data_type.definition,
-        //)
-        unimplemented!()
+    pub fn underlying_type<'a>(&'a self) -> &'a Primitive {
+        // If the enum has an underlying type, return a reference to it's definition.
+        // Otherwise, enums have a backing type of `byte` by default. Since `byte` is a type
+        // defined by the compiler, we fetch it's definition directly from the global AST.
+        self.underlying.as_ref().map_or(
+            crate::borrow_ast().lookup_primitive("byte").unwrap().borrow(),
+            |data_type| data_type.definition(),
+        )
     }
 
     pub fn get_min_max_values(&self) -> Option<(i64, i64)> {
@@ -281,11 +283,11 @@ impl Type for Enum {
     }
 
     fn is_fixed_size(&self) -> bool {
-        self.underlying_type().borrow().is_fixed_size()
+        self.underlying_type().is_fixed_size()
     }
 
     fn min_wire_size(&self) -> u32 {
-        self.underlying_type().borrow().min_wire_size()
+        self.underlying_type().min_wire_size()
     }
 }
 
@@ -362,11 +364,11 @@ impl Type for TypeAlias {
     }
 
     fn is_fixed_size(&self) -> bool {
-        self.underlying.definition.borrow().is_fixed_size()
+        self.underlying.definition().is_fixed_size()
     }
 
     fn min_wire_size(&self) -> u32 {
-        self.underlying.definition.borrow().min_wire_size()
+        self.underlying.definition().min_wire_size()
     }
 }
 
@@ -387,6 +389,12 @@ pub struct TypeRef<T: Element + ?Sized = dyn Type> {
     pub location: Location,
 }
 
+impl<T: Element + ?Sized> TypeRef<T> {
+    pub fn definition(&self) -> &T {
+        self.definition.borrow()
+    }
+}
+
 impl<T: Element + ?Sized + Type> TypeRef<T> {
     pub fn is_bit_sequence_encodable(&self) -> bool {
         self.is_optional && self.min_wire_size() == 0
@@ -395,18 +403,18 @@ impl<T: Element + ?Sized + Type> TypeRef<T> {
 
 // Technically, `TypeRef` is NOT a type; It represents somewhere that a type is referenced.
 // But, for convenience, we implement type on it, so that users of the API can call methods on
-// the underlying type without having to first call `.definition().borrow()` all the time.
+// the underlying type without having to first call `.definition()` all the time.
 impl<T: Element + ?Sized + Type> Type for TypeRef<T> {
     fn get_concrete_type(&self) -> Types {
-        self.definition.borrow().get_concrete_type()
+        self.definition().get_concrete_type()
     }
 
     fn is_fixed_size(&self) -> bool {
-        self.definition.borrow().is_fixed_size()
+        self.definition().is_fixed_size()
     }
 
     fn min_wire_size(&self) -> u32 {
-        let underlying = self.definition.borrow();
+        let underlying = self.definition();
         if self.is_optional {
             // TODO explain why classes and interfaces still take up 1 byte.
             match underlying.kind() {
@@ -431,11 +439,11 @@ pub struct Sequence {
 
 impl Sequence {
     pub fn has_fixed_size_numeric_elements(&self) -> bool {
-        let mut definition = self.element_type.definition.borrow().get_concrete_type();
+        let mut definition = self.element_type.definition().get_concrete_type();
 
         // If the elements are enums with an underlying type, check the underlying type instead.
         if let Types::Enum(enum_def) = definition {
-            definition = enum_def.underlying_type().borrow().into()
+            definition = enum_def.underlying_type().get_concrete_type()
         }
 
         if let Types::Primitive(primitive) = definition {

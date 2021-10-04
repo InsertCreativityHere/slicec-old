@@ -4,7 +4,7 @@ use super::comments::DocComment;
 use super::slice::{Attribute, Identifier};
 use super::util::Scope;
 use super::wrappers::Types;
-use crate::util::{Location, WeakPtr};
+use crate::util::Location;
 
 pub trait Element: std::fmt::Debug {
     fn kind(&self) -> &'static str;
@@ -51,7 +51,7 @@ pub trait Container<T>: Entity {
 }
 
 pub trait Contained<T: Entity + ?Sized>: Entity {
-    fn parent(&self) -> &WeakPtr<T>;
+    fn parent(&self) -> &T;
 }
 
 pub trait Type: Element {
@@ -176,8 +176,8 @@ macro_rules! implement_Container_for {
 macro_rules! implement_Contained_for {
     ($type:ty, $container_type:ty) => {
         impl Contained<$container_type> for $type {
-            fn parent(&self) -> &WeakPtr<$container_type> {
-                &self.parent
+            fn parent(&self) -> &$container_type {
+                self.parent.borrow()
             }
         }
     };
