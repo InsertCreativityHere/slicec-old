@@ -8,6 +8,7 @@ use crate::ptr_visitor::PtrVisitor;
 use crate::util::{OwnedPtr, WeakPtr};
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct Ast {
     ast: Vec<OwnedPtr<Module>>,
     type_lookup_table: HashMap<String, WeakPtr<dyn Type>>,
