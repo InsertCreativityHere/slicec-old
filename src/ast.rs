@@ -44,16 +44,6 @@ impl Ast {
         new_ast
     }
 
-    fn add_cached_primitive(&mut self, identifier: &'static str, primitive: Primitive) {
-        // Move the primitive onto the heap, so it can referenced via pointer.
-        let primitive_ptr = OwnedPtr::new(primitive);
-
-        // Insert an entry in the lookup table for the type, and cache the primitive's instance.
-        let weak_ptr = downgrade_as!(primitive_ptr, dyn Type);
-        self.type_lookup_table.insert(identifier.to_owned(), weak_ptr);
-        self.primitive_cache.insert(identifier, primitive_ptr);
-    }
-
     pub fn add_module(&mut self, module_def: Module) {
         // Move the module onto the heap so it can be referenced via pointer.
         let module_ptr = OwnedPtr::new(module_def);
@@ -70,6 +60,20 @@ impl Ast {
 
         // Store the module in the AST.
         self.ast.push(module_ptr);
+    }
+
+    fn add_cached_primitive(&mut self, identifier: &'static str, primitive: Primitive) {
+        // Move the primitive onto the heap, so it can referenced via pointer.
+        let primitive_ptr = OwnedPtr::new(primitive);
+
+        // Insert an entry in the lookup table for the type, and cache the primitive's instance.
+        let weak_ptr = downgrade_as!(primitive_ptr, dyn Type);
+        self.type_lookup_table.insert(identifier.to_owned(), weak_ptr);
+        self.primitive_cache.insert(identifier, primitive_ptr);
+    }
+
+    pub fn lookup_primitive(&self, name: &str) -> Option<&OwnedPtr<Primitive>> {
+        self.primitive_cache.get(name)
     }
 
     pub fn lookup_type(&self, name: &str, scope: &Scope) -> Option<&WeakPtr<dyn Type>> {
