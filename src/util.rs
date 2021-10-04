@@ -3,13 +3,6 @@
 use std::cell::UnsafeCell;
 use std::rc::Rc;
 
-#[derive(Clone, Debug)]
-pub struct Location {
-    pub start: (usize, usize),
-    pub end: (usize, usize),
-    pub file: String,
-}
-
 #[derive(Debug)]
 pub struct OwnedPtr<T: ?Sized> {
     // `UnsafeCell` is a magic type, and the ONLY way to signal to the Rust compiler that this data

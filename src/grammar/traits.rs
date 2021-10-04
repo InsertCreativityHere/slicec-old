@@ -4,7 +4,7 @@ use super::comments::DocComment;
 use super::slice::{Attribute, Identifier};
 use super::util::Scope;
 use super::wrappers::Types;
-use crate::util::Location;
+use crate::slice_file::Location;
 
 pub trait Element: std::fmt::Debug {
     fn kind(&self) -> &'static str;

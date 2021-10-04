@@ -4,6 +4,7 @@ use super::comments::DocComment;
 use super::traits::*;
 use super::util::Scope;
 use super::wrappers::*;
+use crate::slice_file::Location;
 use crate::util::*;
 
 #[derive(Debug)]
