@@ -82,22 +82,3 @@ forward_trait_for_Types!(Type,
     (is_fixed_size, bool),
     (min_wire_size, u32)
 );
-
-macro_rules! implement_from_type_to_types {
-    ($type:ty, $variant:path) => {
-        impl<'a> From<&'a $type> for Types<'a> {
-            fn from(def: &'a $type) -> Types<'a> {
-                $variant(def)
-            }
-        }
-    };
-}
-
-implement_from_type_to_types!(Struct, Types::Struct);
-implement_from_type_to_types!(Class, Types::Class);
-implement_from_type_to_types!(Interface, Types::Interface);
-implement_from_type_to_types!(Enum, Types::Enum);
-implement_from_type_to_types!(TypeAlias, Types::TypeAlias);
-implement_from_type_to_types!(Sequence, Types::Sequence);
-implement_from_type_to_types!(Dictionary, Types::Dictionary);
-implement_from_type_to_types!(Primitive, Types::Primitive);
