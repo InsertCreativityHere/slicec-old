@@ -34,10 +34,6 @@ pub struct Struct {
 }
 
 impl Type for Struct {
-    fn get_concrete_type(&self) -> Types {
-        Types::Struct(self)
-    }
-
     fn is_fixed_size(&self) -> bool {
         // A struct is fixed size if and only if all it's members are fixed size.
         self.members.iter().all(
@@ -71,10 +67,6 @@ pub struct Class {
 }
 
 impl Type for Class {
-    fn get_concrete_type(&self) -> Types {
-        Types::Class(self)
-    }
-
     fn is_fixed_size(&self) -> bool {
         // A class is fixed size if and only if all it's members are fixed size.
         self.members.iter().all(
@@ -141,10 +133,6 @@ pub struct Interface {
 }
 
 impl Type for Interface {
-    fn get_concrete_type(&self) -> Types {
-        Types::Interface(self)
-    }
-
     fn is_fixed_size(&self) -> bool {
         false
     }
@@ -279,10 +267,6 @@ impl Enum {
 }
 
 impl Type for Enum {
-    fn get_concrete_type(&self) -> Types {
-        Types::Enum(self)
-    }
-
     fn is_fixed_size(&self) -> bool {
         self.underlying_type().is_fixed_size()
     }
@@ -360,10 +344,6 @@ impl Attributable for TypeAlias {
 impl Entity for TypeAlias {}
 
 impl Type for TypeAlias {
-    fn get_concrete_type(&self) -> Types {
-        Types::TypeAlias(self)
-    }
-
     fn is_fixed_size(&self) -> bool {
         self.underlying.definition().is_fixed_size()
     }
@@ -406,10 +386,6 @@ impl<T: Element + ?Sized + Type> TypeRef<T> {
 // But, for convenience, we implement type on it, so that users of the API can call methods on
 // the underlying type without having to first call `.definition()` all the time.
 impl<T: Element + ?Sized + Type> Type for TypeRef<T> {
-    fn get_concrete_type(&self) -> Types {
-        self.definition().get_concrete_type()
-    }
-
     fn is_fixed_size(&self) -> bool {
         self.definition().is_fixed_size()
     }
@@ -440,11 +416,11 @@ pub struct Sequence {
 
 impl Sequence {
     pub fn has_fixed_size_numeric_elements(&self) -> bool {
-        let mut definition = self.element_type.definition().get_concrete_type();
+        let mut definition = self.element_type.definition().concrete_type();
 
         // If the elements are enums with an underlying type, check the underlying type instead.
         if let Types::Enum(enum_def) = definition {
-            definition = enum_def.underlying_type().get_concrete_type()
+            definition = enum_def.underlying_type().concrete_type()
         }
 
         if let Types::Primitive(primitive) = definition {
@@ -456,10 +432,6 @@ impl Sequence {
 }
 
 impl Type for Sequence {
-    fn get_concrete_type(&self) -> Types {
-        Types::Sequence(self)
-    }
-
     fn is_fixed_size(&self) -> bool {
         false
     }
@@ -478,10 +450,6 @@ pub struct Dictionary {
 }
 
 impl Type for Dictionary {
-    fn get_concrete_type(&self) -> Types {
-        Types::Dictionary(self)
-    }
-
     fn is_fixed_size(&self) -> bool {
         false
     }
@@ -527,10 +495,6 @@ impl Primitive {
 }
 
 impl Type for Primitive {
-    fn get_concrete_type(&self) -> Types {
-        Types::Primitive(self)
-    }
-
     fn is_fixed_size(&self) -> bool {
         matches!(self,
             Self::Bool | Self::Byte | Self::Short | Self::UShort | Self::Int | Self::UInt |
