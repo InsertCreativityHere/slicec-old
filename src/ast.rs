@@ -11,7 +11,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct Ast {
     pub(crate) ast: Vec<OwnedPtr<Module>>,
-    pub(crate) anonymous_types: Vec<OwnedPtr<dyn Type>>,
+    pub(crate) inline_types: Vec<OwnedPtr<dyn Type>>,
     pub(crate) primitive_cache: HashMap<&'static str, OwnedPtr<Primitive>>,
     pub(crate) type_lookup_table: HashMap<String, WeakPtr<dyn Type>>,
     pub(crate) entity_lookup_table: HashMap<String, WeakPtr<dyn Entity>>,
@@ -21,7 +21,7 @@ impl Ast {
     pub fn new() -> Ast {
         let mut new_ast = Ast {
             ast: Vec::new(),
-            anonymous_types: Vec::new(),
+            inline_types: Vec::new(),
             primitive_cache: HashMap::new(),
             type_lookup_table: HashMap::new(),
             entity_lookup_table: HashMap::new(),
@@ -70,8 +70,8 @@ impl Ast {
 
     pub fn add_anonymous_type(&mut self, ty: impl Type + 'static) -> &OwnedPtr<dyn Type> {
         let type_ptr = upcast_owned_as!(OwnedPtr::new(ty), dyn Type);
-        self.anonymous_types.push(type_ptr);
-        self.anonymous_types.last().unwrap()
+        self.inline_types.push(type_ptr);
+        self.inline_types.last().unwrap()
     }
 
     fn add_cached_primitive(&mut self, identifier: &'static str, primitive: Primitive) {
@@ -84,14 +84,26 @@ impl Ast {
         self.primitive_cache.insert(identifier, primitive_ptr);
     }
 
-    pub fn lookup_primitive(&self, name: &str) -> Option<&OwnedPtr<Primitive>> {
-        self.primitive_cache.get(name)
+    // The lookup functions are all associated functions instead of methods so that the AST can
+    // be mutated without locking down access to the lookup functions. Methods require a borrow
+    // of the complete AST struct, which is impossible if you've already mutably borrowed some of
+    // it's contents (such as while visiting).
+
+    pub fn lookup_primitive<'ast>(
+        primitive_cache: &'ast HashMap<&'static str, OwnedPtr<Primitive>>,
+        name: &str,
+    ) -> Option<&'ast OwnedPtr<Primitive>> {
+        primitive_cache.get(name)
     }
 
-    pub fn lookup_type(&self, name: &str, scope: &Scope) -> Option<&WeakPtr<dyn Type>> {
+    pub fn lookup_type<'ast>(
+        type_lookup_table: &'ast HashMap<String, WeakPtr<dyn Type>>,
+        name: &str,
+        scope: &Scope,
+    ) -> Option<&'ast WeakPtr<dyn Type>> {
         // Paths starting with '::' are absolute paths, which can be directly looked up.
         if let Some(unprefixed) = name.strip_prefix("::") {
-            return self.type_lookup_table.get(unprefixed);
+            return type_lookup_table.get(unprefixed);
         }
 
         // Types are looked up by module scope, since types can only be defined inside modules.
@@ -101,7 +113,7 @@ impl Ast {
         // (most specified scope), and working our way up to global scope.
         while !parents.is_empty() {
             let candidate = parents.join("::") + "::" + name;
-            if let Some(result) = self.type_lookup_table.get(&candidate) {
+            if let Some(result) = type_lookup_table.get(&candidate) {
                 return Some(result);
             }
             // Remove the last parent's scope before trying again.
@@ -113,10 +125,14 @@ impl Ast {
         None
     }
 
-    pub fn lookup_entity(&self, name: &str, scope: &Scope) -> Option<&WeakPtr<dyn Entity>> {
+    pub fn lookup_entity<'ast>(
+        entity_lookup_table: &'ast HashMap<String, WeakPtr<dyn Entity>>,
+        name: &str,
+        scope: &Scope,
+    ) -> Option<&'ast WeakPtr<dyn Entity>> {
         // Paths starting with '::' are absolute paths, which can be directly looked up.
         if let Some(unprefixed) = name.strip_prefix("::") {
-            return self.entity_lookup_table.get(unprefixed);
+            return entity_lookup_table.get(unprefixed);
         }
 
         // Entites are looked up by parser scope, since entities can be defined anywhere, not
@@ -127,7 +143,7 @@ impl Ast {
         // (most specified scope), and working our way up to global scope.
         while !parents.is_empty() {
             let candidate = parents.join("::") + "::" + name;
-            if let Some(result) = self.entity_lookup_table.get(&candidate) {
+            if let Some(result) = entity_lookup_table.get(&candidate) {
                 return Some(result);
             }
             // Remove the last parent's scope before trying again.
