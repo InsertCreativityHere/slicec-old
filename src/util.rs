@@ -128,7 +128,7 @@ impl<T: ?Sized> WeakPtr<T> {
 impl<T: ?Sized> Clone for WeakPtr<T> {
     fn clone(&self) -> Self {
         WeakPtr {
-            data: self.data.clone(),
+            data: self.data,
             concrete_type_id: self.concrete_type_id,
         }
     }

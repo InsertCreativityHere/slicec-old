@@ -1,8 +1,8 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
 use crate::downgrade_as;
-
 use crate::upcast_owned_as;
+
 use crate::grammar::*;
 use crate::ptr_visitor::PtrVisitor;
 use crate::util::{OwnedPtr, WeakPtr};
@@ -71,7 +71,7 @@ impl Ast {
     pub fn add_anonymous_type(&mut self, ty: impl Type + 'static) -> &OwnedPtr<dyn Type> {
         let type_ptr = upcast_owned_as!(OwnedPtr::new(ty), dyn Type);
         self.anonymous_types.push(type_ptr);
-        &self.anonymous_types.last().unwrap()
+        self.anonymous_types.last().unwrap()
     }
 
     fn add_cached_primitive(&mut self, identifier: &'static str, primitive: Primitive) {

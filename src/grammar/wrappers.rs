@@ -220,8 +220,8 @@ generate_definition_wrapper!(
 );
 
 generate_elements_wrapper!(
-    Module, Struct, Class, Exception, DataMember, Interface, Operation, Parameter, Enum, Enumerator,
-    TypeAlias, TypeRef, Sequence, Dictionary, Primitive, Identifier, Attribute
+    Module, Struct, Class, Exception, DataMember, Interface, Operation, Parameter, Enum,
+    Enumerator, TypeAlias, TypeRef, Sequence, Dictionary, Primitive, Identifier, Attribute
 );
 
 generate_types_wrapper!(

@@ -239,7 +239,7 @@ pub struct Enum {
 }
 
 impl Enum {
-    pub fn underlying_type<'a>(&'a self) -> &'a Primitive {
+    pub fn underlying_type(&self) -> &Primitive {
         // If the enum has an underlying type, return a reference to it's definition.
         // Otherwise, enums have a backing type of `byte` by default. Since `byte` is a type
         // defined by the compiler, we fetch it's definition directly from the global AST.
