@@ -18,7 +18,7 @@ macro_rules! generate_definition_wrapper {
                 }
             }
 
-            pub unsafe fn borrow_mut(&self) -> &mut dyn Entity {
+            pub unsafe fn borrow_mut(&mut self) -> &mut dyn Entity {
                 match self {
                     $(Self::$variant(x) => x.borrow_mut(),)*
                 }
@@ -252,7 +252,7 @@ impl<T: Element + ?Sized> AsElements for TypeRef<T> {
     }
 
     fn concrete_element_mut(&mut self) -> ElementsMut {
-        self.definition().concrete_element_mut()
+        panic!() // TODO write a message here!
     }
 }
 
@@ -262,6 +262,6 @@ impl<T: Type + ?Sized> AsTypes for TypeRef<T> {
     }
 
     fn concrete_type_mut(&mut self) -> TypesMut {
-        self.definition().concrete_type_mut()
+        panic!() // TODO write a message here!
     }
 }

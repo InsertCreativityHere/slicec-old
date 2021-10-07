@@ -2,7 +2,7 @@
 
 use crate::downgrade_as;
 
-use crate::cast_owned_as;
+use crate::upcast_owned_as;
 use crate::grammar::*;
 use crate::ptr_visitor::PtrVisitor;
 use crate::util::{OwnedPtr, WeakPtr};
@@ -10,21 +10,21 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Ast {
-    ast: Vec<OwnedPtr<Module>>,
-    type_lookup_table: HashMap<String, WeakPtr<dyn Type>>,
-    entity_lookup_table: HashMap<String, WeakPtr<dyn Entity>>,
-    anonymous_types: Vec<OwnedPtr<dyn Type>>,
-    primitive_cache: HashMap<&'static str, OwnedPtr<Primitive>>,
+    pub(crate) ast: Vec<OwnedPtr<Module>>,
+    pub(crate) anonymous_types: Vec<OwnedPtr<dyn Type>>,
+    pub(crate) primitive_cache: HashMap<&'static str, OwnedPtr<Primitive>>,
+    pub(crate) type_lookup_table: HashMap<String, WeakPtr<dyn Type>>,
+    pub(crate) entity_lookup_table: HashMap<String, WeakPtr<dyn Entity>>,
 }
 
 impl Ast {
     pub fn new() -> Ast {
         let mut new_ast = Ast {
             ast: Vec::new(),
-            type_lookup_table: HashMap::new(),
-            entity_lookup_table: HashMap::new(),
             anonymous_types: Vec::new(),
             primitive_cache: HashMap::new(),
+            type_lookup_table: HashMap::new(),
+            entity_lookup_table: HashMap::new(),
         };
 
         // Create an instance of each primitive and add them directly into the AST.
@@ -50,7 +50,7 @@ impl Ast {
 
     pub fn add_module(&mut self, module_def: Module) {
         // Move the module onto the heap so it can be referenced via pointer.
-        let module_ptr = OwnedPtr::new(module_def);
+        let mut module_ptr = OwnedPtr::new(module_def);
         // Add the module into the AST's entity lookup table.
         let weak_ptr = downgrade_as!(module_ptr, dyn Entity);
         self.entity_lookup_table.insert(module_ptr.borrow().parser_scoped_identifier(), weak_ptr);
@@ -60,14 +60,16 @@ impl Ast {
             type_lookup_table: &mut self.type_lookup_table,
             entity_lookup_table: &mut self.entity_lookup_table,
         };
-        module_ptr.visit_ptr_with(&mut visitor);
+        // This is always safe; no other references to the module can exist because we own it,
+        // and haven't dereferenced any of the pointers to it we constructed.
+        unsafe { module_ptr.visit_ptr_with(&mut visitor); }
 
         // Store the module in the AST.
         self.ast.push(module_ptr);
     }
 
-    fn add_anonymous_type(&mut self, anonymous_type: impl Type) -> &OwnedPtr<dyn Type> {
-        let type_ptr = cast_owned_as!(OwnedPtr::new(anonymous_type), dyn Type);
+    pub fn add_anonymous_type(&mut self, ty: impl Type + 'static) -> &OwnedPtr<dyn Type> {
+        let type_ptr = upcast_owned_as!(OwnedPtr::new(ty), dyn Type);
         self.anonymous_types.push(type_ptr);
         &self.anonymous_types.last().unwrap()
     }
@@ -158,56 +160,56 @@ impl<'ast> LookupTableBuilder<'ast> {
 }
 
 impl<'ast> PtrVisitor for LookupTableBuilder<'ast> {
-    fn visit_module_start(&mut self, module_ptr: &OwnedPtr<Module>) {
+    unsafe fn visit_module_start(&mut self, module_ptr: &mut OwnedPtr<Module>) {
         self.add_entity_entry(module_ptr);
     }
 
-    fn visit_struct_start(&mut self, struct_ptr: &OwnedPtr<Struct>) {
+    unsafe fn visit_struct_start(&mut self, struct_ptr: &mut OwnedPtr<Struct>) {
         self.add_type_entry(struct_ptr);
         self.add_entity_entry(struct_ptr);
     }
 
-    fn visit_class_start(&mut self, class_ptr: &OwnedPtr<Class>) {
+    unsafe fn visit_class_start(&mut self, class_ptr: &mut OwnedPtr<Class>) {
         self.add_type_entry(class_ptr);
         self.add_entity_entry(class_ptr);
     }
 
-    fn visit_exception_start(&mut self, exception_ptr: &OwnedPtr<Exception>) {
+    unsafe fn visit_exception_start(&mut self, exception_ptr: &mut OwnedPtr<Exception>) {
         self.add_entity_entry(exception_ptr);
     }
 
-    fn visit_interface_start(&mut self, interface_ptr: &OwnedPtr<Interface>) {
+    unsafe fn visit_interface_start(&mut self, interface_ptr: &mut OwnedPtr<Interface>) {
         self.add_type_entry(interface_ptr);
         self.add_entity_entry(interface_ptr);
     }
 
-    fn visit_enum_start(&mut self, enum_ptr: &OwnedPtr<Enum>) {
+    unsafe fn visit_enum_start(&mut self, enum_ptr: &mut OwnedPtr<Enum>) {
         self.add_type_entry(enum_ptr);
         self.add_entity_entry(enum_ptr);
     }
 
-    fn visit_operation_start(&mut self, operation_ptr: &OwnedPtr<Operation>) {
+    unsafe fn visit_operation_start(&mut self, operation_ptr: &mut OwnedPtr<Operation>) {
         self.add_entity_entry(operation_ptr);
     }
 
-    fn visit_type_alias(&mut self, type_alias_ptr: &OwnedPtr<TypeAlias>) {
+    unsafe fn visit_type_alias(&mut self, type_alias_ptr: &mut OwnedPtr<TypeAlias>) {
         self.add_type_entry(type_alias_ptr);
         self.add_entity_entry(type_alias_ptr);
     }
 
-    fn visit_data_member(&mut self, data_member_ptr: &OwnedPtr<DataMember>) {
+    unsafe fn visit_data_member(&mut self, data_member_ptr: &mut OwnedPtr<DataMember>) {
         self.add_entity_entry(data_member_ptr);
     }
 
-    fn visit_parameter(&mut self, parameter_ptr: &OwnedPtr<Parameter>) {
+    unsafe fn visit_parameter(&mut self, parameter_ptr: &mut OwnedPtr<Parameter>) {
         self.add_entity_entry(parameter_ptr);
     }
 
-    fn visit_return_member(&mut self, parameter_ptr: &OwnedPtr<Parameter>) {
+    unsafe fn visit_return_member(&mut self, parameter_ptr: &mut OwnedPtr<Parameter>) {
         self.add_entity_entry(parameter_ptr);
     }
 
-    fn visit_enumerator(&mut self, enumerator_ptr: &OwnedPtr<Enumerator>) {
+    unsafe fn visit_enumerator(&mut self, enumerator_ptr: &mut OwnedPtr<Enumerator>) {
         self.add_entity_entry(enumerator_ptr);
     }
 }
