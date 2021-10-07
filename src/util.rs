@@ -86,7 +86,7 @@ impl<T: ?Sized + 'static> WeakPtr<T> {
 }
 
 impl<T: ?Sized> WeakPtr<T> {
-    pub fn is_uninitialized(&self) -> bool {
+    pub fn is_initialized(&self) -> bool {
         self.data.is_none()
     }
 

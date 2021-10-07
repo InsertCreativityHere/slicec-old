@@ -4,6 +4,7 @@ use super::comments::DocComment;
 use super::traits::*;
 use super::util::Scope;
 use super::wrappers::*;
+use crate::ast::Ast;
 use crate::slice_file::Location;
 use crate::util::*;
 
@@ -244,7 +245,7 @@ impl Enum {
         // Otherwise, enums have a backing type of `byte` by default. Since `byte` is a type
         // defined by the compiler, we fetch it's definition directly from the global AST.
         self.underlying.as_ref().map_or(
-            crate::borrow_ast().lookup_primitive("byte").unwrap().borrow(),
+            Ast::lookup_primitive(&crate::borrow_ast().primitive_cache, "byte").unwrap().borrow(),
             |data_type| data_type.definition(),
         )
     }
