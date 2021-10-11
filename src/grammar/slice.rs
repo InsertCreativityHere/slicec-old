@@ -19,6 +19,24 @@ pub struct Module {
     pub location: Location,
 }
 
+impl Module {
+    pub(crate) fn new(
+        identifier: Identifier,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let contents = Vec::new();
+        let parent = None;
+        Module { identifier, contents, parent, scope, attributes, comment, location }
+    }
+
+    pub(crate) fn add_definition(&mut self, definition: Definition) {
+        self.contents.push(definition);
+    }
+}
+
 implement_Element_for!(Module, "module");
 implement_Entity_for!(Module);
 implement_Container_for!(Module, Definition, contents);
@@ -32,6 +50,24 @@ pub struct Struct {
     pub attributes: Vec<Attribute>,
     pub comment: Option<DocComment>,
     pub location: Location,
+}
+
+impl Struct {
+    pub(crate) fn new(
+        identifier: Identifier,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let members = Vec::new();
+        let parent = WeakPtr::create_uninitialized();
+        Struct { identifier, members, parent, scope, attributes, comment, location }
+    }
+
+    pub(crate) fn add_member(&mut self, member: DataMember) {
+        self.members.push(OwnedPtr::new(member));
+    }
 }
 
 impl Type for Struct {
@@ -67,6 +103,25 @@ pub struct Class {
     pub location: Location,
 }
 
+impl Class {
+    pub(crate) fn new(
+        identifier: Identifier,
+        base: Option<TypeRef<Class>>,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let members = Vec::new();
+        let parent = WeakPtr::create_uninitialized();
+        Class { identifier, members, base, parent, scope, attributes, comment, location }
+    }
+
+    pub(crate) fn add_member(&mut self, member: DataMember) {
+        self.members.push(OwnedPtr::new(member));
+    }
+}
+
 impl Type for Class {
     fn is_fixed_size(&self) -> bool {
         // A class is fixed size if and only if all it's members are fixed size.
@@ -100,6 +155,25 @@ pub struct Exception {
     pub location: Location,
 }
 
+impl Exception {
+    pub(crate) fn new(
+        identifier: Identifier,
+        base: Option<TypeRef<Exception>>,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let members = Vec::new();
+        let parent = WeakPtr::create_uninitialized();
+        Exception { identifier, members, base, parent, scope, attributes, comment, location }
+    }
+
+    pub(crate) fn add_member(&mut self, member: DataMember) {
+        self.members.push(OwnedPtr::new(member));
+    }
+}
+
 implement_Element_for!(Exception, "exception");
 implement_Entity_for!(Exception);
 implement_Container_for!(Exception, OwnedPtr<DataMember>, members);
@@ -117,6 +191,21 @@ pub struct DataMember {
     pub location: Location,
 }
 
+impl DataMember {
+    pub(crate) fn new(
+        identifier: Identifier,
+        data_type: TypeRef,
+        tag: Option<u32>,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let parent = WeakPtr::create_uninitialized();
+        DataMember { identifier, data_type, tag, parent, scope, attributes, comment, location }
+    }
+}
+
 implement_Element_for!(DataMember, "data member");
 implement_Entity_for!(DataMember);
 implement_Contained_for!(DataMember, dyn Container<OwnedPtr<DataMember>> + 'static);
@@ -131,6 +220,25 @@ pub struct Interface {
     pub attributes: Vec<Attribute>,
     pub comment: Option<DocComment>,
     pub location: Location,
+}
+
+impl Interface {
+    pub(crate) fn new(
+        identifier: Identifier,
+        bases: Vec<TypeRef<Interface>>,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let operations = Vec::new();
+        let parent = WeakPtr::create_uninitialized();
+        Interface { identifier, operations, bases, parent, scope, attributes, comment, location }
+    }
+
+    pub(crate) fn add_operation(&mut self, operation: Operation) {
+        self.operations.push(OwnedPtr::new(operation));
+    }
 }
 
 impl Type for Interface {
@@ -162,6 +270,23 @@ pub struct Operation {
 }
 
 impl Operation {
+    pub(crate) fn new(
+        identifier: Identifier,
+        return_type: Vec<OwnedPtr<Parameter>>,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let parameters = Vec::new();
+        let parent = WeakPtr::create_uninitialized();
+        Operation { identifier, return_type, parameters, parent, scope, attributes, comment, location }
+    }
+
+    pub(crate) fn add_parameter(&mut self, parameter: Parameter) {
+        self.parameters.push(OwnedPtr::new(parameter));
+    }
+
     pub fn has_unstreamed_parameters(&self) -> bool {
         // Operations can have at most 1 streamed parameter. So, if it has more than 1 parameter
         // there must be unstreamed parameters. Otherwise we check if the 1 parameter is streamed.
@@ -213,6 +338,23 @@ pub struct Parameter {
     pub location: Location,
 }
 
+impl Parameter {
+    pub(crate) fn new(
+        identifier: Identifier,
+        data_type: TypeRef,
+        tag: Option<u32>,
+        is_streamed: bool,
+        is_returned: bool,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let parent = WeakPtr::create_uninitialized();
+        Parameter { identifier, data_type, tag, is_streamed, is_returned, parent, scope, attributes, comment, location }
+    }
+}
+
 impl Element for Parameter {
     fn kind(&self) -> &'static str {
         if self.is_returned {
@@ -240,6 +382,24 @@ pub struct Enum {
 }
 
 impl Enum {
+    pub(crate) fn new(
+        identifier: Identifier,
+        underlying: Option<TypeRef<Primitive>>,
+        is_unchecked: bool,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let enumerators = Vec::new();
+        let parent = WeakPtr::create_uninitialized();
+        Enum { identifier, enumerators, underlying, is_unchecked, parent, scope, attributes, comment, location }
+    }
+
+    pub(crate) fn add_enumerator(&mut self, enumerator: Enumerator) {
+        self.enumerators.push(OwnedPtr::new(enumerator));
+    }
+
     pub fn underlying_type(&self) -> &Primitive {
         // If the enum has an underlying type, return a reference to it's definition.
         // Otherwise, enums have a backing type of `byte` by default. Since `byte` is a type
@@ -254,13 +414,11 @@ impl Enum {
         let values = self.enumerators.iter().map(
             |enumerator| enumerator.borrow().value
         );
-        let min = values.clone().min();
-        let max = values.max();
 
         // There might not be a minimum value if the enum is empty.
-        if min.is_some() {
+        if let Some(min) = values.clone().min() {
             // A `min` existing guarantees a `max` does too, so it's safe to unwrap here.
-            Some((min.unwrap(), max.unwrap()))
+            Some((min, values.max().unwrap()))
         } else {
             None
         }
@@ -293,6 +451,20 @@ pub struct Enumerator {
     pub location: Location,
 }
 
+impl Enumerator {
+    pub(crate) fn new(
+        identifier: Identifier,
+        value: i64,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let parent = WeakPtr::create_uninitialized();
+        Enumerator { identifier, value, parent, scope, attributes, comment, location }
+    }
+}
+
 implement_Element_for!(Enumerator, "enumerator");
 implement_Entity_for!(Enumerator);
 implement_Contained_for!(Enumerator, Enum);
@@ -304,6 +476,18 @@ pub struct TypeAlias {
     pub parent: WeakPtr<Module>,
     pub comment: Option<DocComment>,
     pub location: Location,
+}
+
+impl TypeAlias {
+    pub(crate) fn new(
+        identifier: Identifier,
+        underlying: TypeRef,
+        comment: Option<DocComment>,
+        location: Location,
+    ) -> Self {
+        let parent = WeakPtr::create_uninitialized();
+        TypeAlias { identifier, underlying, parent, comment, location }
+    }
 }
 
 // The `implement_trait_for` macros expect structs to store all it's data as fields on itself,
@@ -369,6 +553,20 @@ pub struct TypeRef<T: Element + ?Sized = dyn Type> {
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
     pub location: Location,
+}
+
+impl<T: Element + ?Sized + 'static> TypeRef<T> {
+    pub(crate) fn new(
+        type_string: String,
+        is_optional: bool,
+        is_streamed: bool,
+        scope: Scope,
+        attributes: Vec<Attribute>,
+        location: Location,
+    ) -> Self {
+        let definition = WeakPtr::create_uninitialized();
+        TypeRef { type_string, definition, is_optional, is_streamed, scope, attributes, location }
+    }
 }
 
 impl<T: Element + ?Sized> TypeRef<T> {
@@ -562,6 +760,21 @@ pub struct Attribute {
     pub prefixed_directive: String,
     pub arguments: Vec<String>,
     pub location: Location,
+}
+
+impl Attribute {
+    pub(crate) fn new(
+        prefix: Option<String>,
+        directive: String,
+        arguments: Vec<String>,
+        location: Location
+    ) -> Self {
+        let prefixed_directive = prefix.clone().map_or(
+            directive.clone(),              // Default value if prefix == None
+            |prefix| prefix + &directive    // Function to call if prefix == Some
+        );
+        Attribute { prefix, directive, prefixed_directive, arguments, location }
+    }
 }
 
 implement_Element_for!(Attribute, "attribute");
