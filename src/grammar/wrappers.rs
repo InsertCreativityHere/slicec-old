@@ -175,6 +175,37 @@ macro_rules! generate_types_wrapper {
     };
 }
 
+macro_rules! generate_typerefs_wrapper {
+    ($($variant:ident),*) => {
+        #[derive(Debug)]
+        pub enum TypeRefs {
+            $($variant(TypeRef<$variant>),)*
+        }
+
+        impl<T: Element + ?Sized> TypeRef<T> {
+            pub fn concrete_type_ref(&self) -> TypeRefs {
+                match self.concrete_element() {
+                    $(Elements::$variant(x) => {
+                        // Clone the TypeRef, but downcast it's pointer to the concrete type.
+                        // TODO cloning this is expensive. There may be a better way to implement.
+                        let downcasted = TypeRef {
+                            type_string: self.type_string.clone(),
+                            definition: self.definition.downcast::<$variant>().unwrap(),
+                            is_optional: self.is_optional,
+                            is_streamed: self.is_streamed,
+                            scope: self.scope.clone(),
+                            attributes: self.attributes.clone(),
+                            location: self.location.clone(),
+                        };
+                        TypeRefs::$variant(downcasted)
+                    })*
+                    _ => panic!("TODO MAKE THIS BETTER"),
+                }
+            }
+        }
+    };
+}
+
 macro_rules! implement_as_elements {
     ($type:ident) => {
         impl AsElements for $type {
@@ -226,6 +257,10 @@ generate_elements_wrapper!(
 
 generate_types_wrapper!(
     Struct, Class, Interface, Enum, TypeAlias, Sequence, Dictionary, Primitive
+);
+
+generate_typerefs_wrapper!(
+    Struct, Class, Exception, Interface, Enum, Sequence, Dictionary, Primitive
 );
 
 implement_as_elements!(Module);
