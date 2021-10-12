@@ -11,7 +11,11 @@ impl ErrorReporter {
         ErrorReporter {}
     }
 
-    pub fn report_error(&mut self, message: String, location: Location, severity: ErrorLevel) {
+    pub fn report_error(&mut self,
+        message: String,
+        location: Option<Location>,
+        severity: ErrorLevel)
+    {
         // Critical should print everything and immediately terminate,
         // error should stop at the next convenient location,
         // warning and note are okay.
