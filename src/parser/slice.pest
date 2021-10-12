@@ -21,16 +21,16 @@ exception_def = !{ prelude ~ exception_start ~ "{" ~ data_member* ~ "}" }
 interface_start = ${ interface_kw ~ ws+ ~ identifier ~ ( ws* ~ extends_kw ~ ws* ~ inheritance_list)? }
 interface_def = !{ prelude ~ interface_start ~ "{" ~ operation* ~ "}" }
 
-enum_start = ${ unchecked_modifier ~ enum_kw ~ ws+ ~ identifier ~ ( ws* ~ extends_kw ~ ws* ~ typename )? }
+enum_start = ${ unchecked_modifier ~ enum_kw ~ ws+ ~ identifier ~ ( ws* ~ extends_kw ~ ws* ~ typeref )? }
 enum_def = !{ prelude ~ enum_start ~ "{" ~ enumerator_list? ~ "}" }
 
-return_type = !{ void_kw | typename | return_tuple }
+return_type = !{ void_kw | typeref | return_tuple }
 return_tuple = !{ "(" ~ parameter_list ~ ")" }
 operation_start = ${ return_type ~ ws+ ~ identifier }
 operation = !{ prelude ~ operation_start ~ "(" ~ parameter_list? ~ ")" ~ ";" }
 
 data_member = ${ prelude ~ ws* ~ member ~ ws* ~ ";" }
-member = ${ (tag ~ ws*)? ~ typename ~ ws+ ~ identifier }
+member = ${ (tag ~ ws*)? ~ typeref ~ ws+ ~ identifier }
 tag = !{ tag_kw ~ "(" ~ integer ~ ")" }
 
 parameter_list = !{ ( parameter ~ "," ~ parameter_list) | ( parameter ~ ","? ) }
@@ -39,16 +39,16 @@ parameter = ${ prelude ~ ws* ~ member }
 enumerator_list = !{ ( enumerator ~ "," ~ enumerator_list ) | ( enumerator ~ ","? ) }
 enumerator = !{ prelude ~ identifier ~ ( "=" ~ integer )? }
 
-inheritance_list = !{ ( typename ~ "," ~ inheritance_list ) | ( typename ~ ","? ) }
+inheritance_list = !{ ( typeref ~ "," ~ inheritance_list ) | ( typeref ~ ","? ) }
 
 identifier = @{ ASCII_ALPHA ~ ( "_" | ASCII_ALPHANUMERIC )* }
 global_identifier = @{ ( "::" ~ identifier )+ }
 scoped_identifier = @{ identifier ~ ( "::" ~ identifier )* }
 
-typename = ${ local_attributes ~ ws* ~ (primitive | sequence | dictionary | global_identifier | scoped_identifier) ~ (ws* ~ "?")? }
+typeref = ${ local_attributes ~ ws* ~ (primitive | sequence | dictionary | global_identifier | scoped_identifier) ~ (ws* ~ "?")? }
 
-sequence = !{ sequence_kw ~ "<" ~ typename ~ ">" }
-dictionary = !{ dictionary_kw ~ "<" ~ typename ~ "," ~ typename ~ ">" }
+sequence = !{ sequence_kw ~ "<" ~ typeref ~ ">" }
+dictionary = !{ dictionary_kw ~ "<" ~ typeref ~ "," ~ typeref ~ ">" }
 
 primitive = {
     bool_kw     |
