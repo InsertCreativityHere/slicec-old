@@ -39,4 +39,34 @@ impl Scope {
             parser_scope,
         }
     }
+
+    pub fn push_scope(&mut self, name: &str, is_module: bool) {
+        if is_module {
+            self.raw_module_scope = self.raw_module_scope + "::" + name;
+            self.module_scope.push(name.to_owned());
+        }
+        self.raw_parser_scope = self.raw_parser_scope + "::" + name;
+        self.parser_scope.push(name.to_owned());
+    }
+
+    pub fn pop_scope(&mut self) {
+        // If the last parser scope is also a module scope, pop off a module scope as well.
+        if self.parser_scope.last() == self.module_scope.last() {
+            self.module_scope.pop();
+            // If there are multiple scope segments, truncate off the last one.
+            // Otherwise, if there's only one scope, just clear the string.
+            if let Some(index) = self.raw_module_scope.rfind("::") {
+                self.raw_module_scope.truncate(index);
+            } else {
+                self.raw_module_scope.clear();
+            }
+        }
+
+        self.parser_scope.pop();
+        if let Some(index) = self.raw_parser_scope.rfind("::") {
+            self.raw_parser_scope.truncate(index);
+        } else {
+            self.raw_parser_scope.clear();
+        }
+    }
 }
