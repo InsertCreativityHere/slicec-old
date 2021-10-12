@@ -1,10 +1,10 @@
 
 use crate::ast::Ast;
-use crate::upcast_weak_as;
+use super::comments::CommentParser;
 use crate::grammar::*;
 use crate::slice_file::Location;
+use crate::upcast_weak_as;
 use crate::util::{OwnedPtr, WeakPtr};
-use super::comments::CommentParser;
 use std::cell::RefCell;
 
 use pest::error::ErrorVariant as PestErrorVariant;
@@ -24,6 +24,16 @@ fn from_span(input: &PestNode) -> Location {
 
 fn get_scope(input: &PestNode) -> Scope {
     input.user_data().borrow().current_scope.clone()
+}
+
+fn push_scope(input: &PestNode, identifier: &str, is_module: bool) {
+    let scope = &mut input.user_data().borrow_mut().current_scope;
+    scope.push_scope(identifier, is_module);
+}
+
+fn pop_scope(input: &PestNode) {
+    let scope = &mut input.user_data().borrow_mut().current_scope;
+    scope.pop_scope();
 }
 
 #[derive(Debug)]
@@ -62,9 +72,10 @@ impl SliceParser {
 
     fn module_start(input: PestNode) -> PestResult<(Identifier, Location)> {
         let location = from_span(&input);
-        let identifier = match_nodes!(input.into_children();
+        let identifier = match_nodes!(input.children();
             [_, identifier(ident)] => ident,
         );
+        push_scope(&input, &identifier.value, true);
         Ok((identifier, location))
     }
 
@@ -78,6 +89,7 @@ impl SliceParser {
                 for definition in definitions {
                     module.add_definition(definition);
                 }
+                pop_scope(&input);
                 module
             },
         ))
@@ -85,9 +97,10 @@ impl SliceParser {
 
     fn struct_start(input: PestNode) -> PestResult<(Identifier, Location)> {
         let location = from_span(&input);
-        let identifier = match_nodes!(input.into_children();
+        let identifier = match_nodes!(input.children();
             [_, identifier(ident)] => ident,
         );
+        push_scope(&input, &identifier.value, false);
         Ok((identifier, location))
     }
 
@@ -101,6 +114,7 @@ impl SliceParser {
                 for member in members {
                     struct_def.add_member(member);
                 }
+                pop_scope(&input);
                 struct_def
             },
         ))
@@ -109,7 +123,10 @@ impl SliceParser {
     fn class_start(input: PestNode) -> PestResult<(Identifier, Location, Option<TypeRef<Class>>)> {
         let location = from_span(&input);
         Ok(match_nodes!(input.children();
-            [_, identifier(identifier)] => (identifier, location, None),
+            [_, identifier(identifier)] => {
+                push_scope(&input, &identifier.value, false);
+                (identifier, location, None)
+            },
             [_, identifier(identifier), _, inheritance_list(bases)] => {
                 // Classes can only inherit from a single base class.
                 if bases.len() > 1 {
@@ -119,6 +136,9 @@ impl SliceParser {
                     //TODO     location.clone()
                     //TODO ).into());
                 }
+
+                push_scope(&input, &identifier.value, false);
+
                 if let TypeRefs::Class(base) = bases[0].concrete_type_ref() {
                     (identifier, location, Some(base))
                 } else {
@@ -139,6 +159,7 @@ impl SliceParser {
                 for member in members {
                     class.add_member(member);
                 }
+                pop_scope(&input);
                 class
             },
         ))
@@ -147,7 +168,10 @@ impl SliceParser {
     fn exception_start(input: PestNode) -> PestResult<(Identifier, Location, Option<TypeRef<Exception>>)> {
         let location = from_span(&input);
         Ok(match_nodes!(input.children();
-            [_, identifier(identifier)] => (identifier, location, None),
+            [_, identifier(identifier)] => {
+                push_scope(&input, &identifier.value, false);
+                (identifier, location, None)
+            },
             [_, identifier(identifier), _, inheritance_list(bases)] => {
                 // Exceptions can only inherit from a single base exception.
                 if bases.len() > 1 {
@@ -157,6 +181,9 @@ impl SliceParser {
                     //TODO     location.clone()
                     //TODO ).into());
                 }
+
+                push_scope(&input, &identifier.value, false);
+
                 if let TypeRefs::Exception(base) = bases[0].concrete_type_ref() {
                     (identifier, location, Some(base))
                 } else {
@@ -177,6 +204,7 @@ impl SliceParser {
                 for member in members {
                     exception.add_member(member);
                 }
+                pop_scope(&input);
                 exception
             },
         ))
@@ -184,8 +212,11 @@ impl SliceParser {
 
     fn interface_start(input: PestNode) -> PestResult<(Identifier, Location, Vec<TypeRef<Interface>>)> {
         let location = from_span(&input);
-        Ok(match_nodes!(input.into_children();
-            [_, identifier(identifier)] => (identifier, location, Vec::new()),
+        Ok(match_nodes!(input.children();
+            [_, identifier(identifier)] => {
+                push_scope(&input, &identifier.value, false);
+                (identifier, location, Vec::new())
+            },
             [_, identifier(identifier), _, inheritance_list(bases)] => {
                 let mut bases_vector = Vec::new();
                 for base in bases {
@@ -195,6 +226,7 @@ impl SliceParser {
                         // TODO report an error! Interfaces must inherit from interfaces
                     }
                 }
+                push_scope(&input, &identifier.value, false);
                 (identifier, location, bases_vector)
             }
         ))
@@ -217,6 +249,7 @@ impl SliceParser {
                 for operation in operations {
                     interface.add_operation(operation);
                 }
+                pop_scope(&input);
                 interface
             },
         ))
@@ -227,16 +260,18 @@ impl SliceParser {
         input.user_data().borrow_mut().current_enum_value = 0;
 
         let location = from_span(&input);
-        Ok(match_nodes!(input.into_children();
-            [unchecked_modifier(unchecked), _, identifier(ident)] => {
-                (unchecked, ident, location, None)
+        Ok(match_nodes!(input.children();
+            [unchecked_modifier(unchecked), _, identifier(identifier)] => {
+                push_scope(&input, &identifier.value, false);
+                (unchecked, identifier, location, None)
             },
-            [unchecked_modifier(unchecked), _, identifier(ident), _, typeref(type_ref)] => {
+            [unchecked_modifier(unchecked), _, identifier(identifier), _, typeref(type_ref)] => {
                 let underlying = match type_ref.concrete_type_ref() {
                     TypeRefs::Primitive(underlying) => underlying,
                     _ => panic!("MUST BE A PRIMITIVE TODO"),
                 };
-                (unchecked, ident, location, Some(underlying))
+                push_scope(&input, &identifier.value, false);
+                (unchecked, identifier, location, Some(underlying))
             },
         ))
     }
@@ -259,11 +294,13 @@ impl SliceParser {
                 for enumerator in enumerators {
                     enum_def.add_enumerator(enumerator);
                 }
+                pop_scope(&input);
                 enum_def
             },
             [prelude(prelude), enum_start(enum_start)] => {
                 let (is_unchecked, identifier, location, underlying) = enum_start;
                 let (attributes, comment) = prelude;
+                pop_scope(&input);
                 Enum::new(
                     identifier,
                     underlying,
@@ -319,8 +356,9 @@ impl SliceParser {
     }
 
     fn operation_start(input: PestNode) -> PestResult<(Vec<OwnedPtr<Parameter>>, Identifier)> {
-        Ok(match_nodes!(input.into_children();
+        Ok(match_nodes!(input.children();
             [return_type(return_type), identifier(identifier)] => {
+                push_scope(&input, &identifier.value, false);
                 (return_type, identifier)
             }
         ))
@@ -333,6 +371,7 @@ impl SliceParser {
             [prelude(prelude), operation_start(operation_start)] => {
                 let (attributes, comment) = prelude;
                 let (return_type, identifier) = operation_start;
+                pop_scope(&input);
                 Operation::new(identifier, return_type, scope, attributes, comment, location)
             },
             [prelude(prelude), operation_start(operation_start), parameter_list(parameters)] => {
@@ -342,6 +381,7 @@ impl SliceParser {
                 for parameter in parameters {
                     operation.add_parameter(parameter);
                 }
+                pop_scope(&input);
                 operation
             },
         );
@@ -549,7 +589,8 @@ impl SliceParser {
         // Resolve and/or construct non user defined types.
         match type_node.as_rule() {
             Rule::primitive => {
-                type_ref.definition = upcast_weak_as!(Self::primitive(type_node).unwrap(), dyn Type);
+                type_ref.definition =
+                    upcast_weak_as!(Self::primitive(type_node).unwrap(), dyn Type);
             }
             Rule::sequence => {
                 // Store the sequence in the AST's anonymous types vector.
@@ -591,7 +632,9 @@ impl SliceParser {
         Ok(Ast::lookup_primitive(
             &input.user_data().borrow().ast.primitive_cache,
             input.as_str(),
-        ).unwrap().downgrade())
+        )
+        .unwrap()
+        .downgrade())
     }
 
     fn prelude(input: PestNode) -> PestResult<(Vec<Attribute>, Option<DocComment>)> {
@@ -691,7 +734,7 @@ impl SliceParser {
             Ok(int) => Ok(int),
             Err(err) => Err(PestError::new_from_span(
                 PestErrorVariant::CustomError {
-                    message: format!("Failed to parse integer: {}", err)
+                    message: format!("Failed to parse integer: {}", err),
                 },
                 input.as_span(),
             )),

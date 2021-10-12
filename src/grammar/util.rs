@@ -42,10 +42,10 @@ impl Scope {
 
     pub fn push_scope(&mut self, name: &str, is_module: bool) {
         if is_module {
-            self.raw_module_scope = self.raw_module_scope + "::" + name;
+            self.raw_module_scope += &("::".to_owned() + name);
             self.module_scope.push(name.to_owned());
         }
-        self.raw_parser_scope = self.raw_parser_scope + "::" + name;
+        self.raw_parser_scope += &("::".to_owned() + name);
         self.parser_scope.push(name.to_owned());
     }
 
