@@ -2,6 +2,7 @@
 
 use super::slice::*;
 use super::traits::*;
+use super::util::TagFormat;
 use crate::util::OwnedPtr;
 
 macro_rules! generate_definition_wrapper {
@@ -104,6 +105,18 @@ macro_rules! generate_types_wrapper {
                     $(Self::$variant(x) => x.min_wire_size(),)*
                 }
             }
+
+            fn uses_classes(&self) -> bool {
+                match self {
+                    $(Self::$variant(x) => x.uses_classes(),)*
+                }
+            }
+
+            fn tag_format(&self) -> TagFormat {
+                match self {
+                    $(Self::$variant(x) => x.tag_format(),)*
+                }
+            }
         }
 
         impl<'a> AsElements for Types<'a> {
@@ -151,6 +164,18 @@ macro_rules! generate_types_wrapper {
                     $(Self::$variant(x) => x.min_wire_size(),)*
                 }
             }
+
+            fn uses_classes(&self) -> bool {
+                match self {
+                    $(Self::$variant(x) => x.uses_classes(),)*
+                }
+            }
+
+            fn tag_format(&self) -> TagFormat {
+                match self {
+                    $(Self::$variant(x) => x.tag_format(),)*
+                }
+            }
         }
 
         impl<'a> AsElements for TypesMut<'a> {
@@ -192,7 +217,6 @@ macro_rules! generate_typerefs_wrapper {
                             type_string: self.type_string.clone(),
                             definition: self.definition.clone().downcast::<$variant>().unwrap(),
                             is_optional: self.is_optional,
-                            is_streamed: self.is_streamed,
                             scope: self.scope.clone(),
                             attributes: self.attributes.clone(),
                             location: self.location.clone(),

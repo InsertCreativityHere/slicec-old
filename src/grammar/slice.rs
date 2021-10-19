@@ -2,7 +2,7 @@
 
 use super::comments::DocComment;
 use super::traits::*;
-use super::util::Scope;
+use super::util::{Scope, TagFormat};
 use super::wrappers::*;
 use crate::ast::Ast;
 use crate::slice_file::Location;
@@ -34,6 +34,10 @@ impl Module {
 
     pub(crate) fn add_definition(&mut self, definition: Definition) {
         self.contents.push(definition);
+    }
+
+    pub fn is_top_level(&self) -> bool {
+        self.parent.is_none()
     }
 }
 
@@ -68,21 +72,39 @@ impl Struct {
     pub(crate) fn add_member(&mut self, member: DataMember) {
         self.members.push(OwnedPtr::new(member));
     }
+
+    pub fn members(&self) -> Vec<&DataMember> {
+        self.members.iter()
+            .map(|member_ptr| member_ptr.borrow())
+            .collect()
+    }
 }
 
 impl Type for Struct {
     fn is_fixed_size(&self) -> bool {
         // A struct is fixed size if and only if all it's members are fixed size.
-        self.members.iter().all(
-            |member| member.borrow().data_type.definition().is_fixed_size()
-        )
+        self.members().iter()
+            .all(|member| member.data_type.is_fixed_size())
     }
 
     fn min_wire_size(&self) -> u32 {
         // The min-wire-size of a struct is the min-wire-size of all its members added together.
-        self.members.iter().map(
-            |member| member.borrow().data_type.definition().min_wire_size()
-        ).sum()
+        self.members().iter()
+            .map(|member| member.data_type.min_wire_size())
+            .sum()
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        if self.is_fixed_size() {
+            TagFormat::VSize
+        } else {
+            TagFormat::FSize
+        }
+    }
+
+    fn uses_classes(&self) -> bool {
+        self.members().iter()
+            .any(|member| member.data_type.uses_classes())
     }
 }
 
@@ -95,6 +117,7 @@ implement_Contained_for!(Struct, Module);
 pub struct Class {
     pub identifier: Identifier,
     pub members: Vec<OwnedPtr<DataMember>>,
+    pub compact_id: Option<u32>,
     pub base: Option<TypeRef<Class>>,
     pub parent: WeakPtr<Module>,
     pub scope: Scope,
@@ -106,6 +129,7 @@ pub struct Class {
 impl Class {
     pub(crate) fn new(
         identifier: Identifier,
+        compact_id: Option<u32>,
         base: Option<TypeRef<Class>>,
         scope: Scope,
         attributes: Vec<Attribute>,
@@ -114,27 +138,49 @@ impl Class {
     ) -> Self {
         let members = Vec::new();
         let parent = WeakPtr::create_uninitialized();
-        Class { identifier, members, base, parent, scope, attributes, comment, location }
+        Class { identifier, compact_id, members, base, parent, scope, attributes, comment, location }
     }
 
     pub(crate) fn add_member(&mut self, member: DataMember) {
         self.members.push(OwnedPtr::new(member));
     }
+
+    pub fn members(&self) -> Vec<&DataMember> {
+        self.members.iter()
+            .map(|member_ptr| member_ptr.borrow())
+            .collect()
+    }
+
+    pub fn all_members(&self) -> Vec<&DataMember> {
+        let mut members = self.members();
+        // Recursively add inherited data members from super-classes.
+        if let Some(base_class) = self.base_class() {
+            members.extend(base_class.members());
+        }
+        members
+    }
+
+    pub fn base_class(&self) -> Option<&Class> {
+        self.base.as_ref()
+            .map(|type_ref| type_ref.definition())
+    }
 }
 
 impl Type for Class {
     fn is_fixed_size(&self) -> bool {
-        // A class is fixed size if and only if all it's members are fixed size.
-        self.members.iter().all(
-            |member| member.borrow().data_type.definition().is_fixed_size()
-        )
+        false // A class can always be encoded as either a full instance, or just an index.
     }
 
     fn min_wire_size(&self) -> u32 {
-        // The min-wire-size of a class is the min-wire-size of all its members added together.
-        self.members.iter().map(
-            |member| member.borrow().data_type.definition().min_wire_size()
-        ).sum()
+        1 // A class may be encoded as an index instead of an instance, taking up 1 byte.
+    }
+
+    fn uses_classes(&self) -> bool {
+        true
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        TagFormat::Class
     }
 }
 
@@ -171,6 +217,33 @@ impl Exception {
 
     pub(crate) fn add_member(&mut self, member: DataMember) {
         self.members.push(OwnedPtr::new(member));
+    }
+
+    pub fn members(&self) -> Vec<&DataMember> {
+        self.members.iter()
+            .map(|member_ptr| member_ptr.borrow())
+            .collect()
+    }
+
+    pub fn all_members(&self) -> Vec<&DataMember> {
+        let mut members = self.members();
+        // Recursively add inherited data members from super-exceptions.
+        if let Some(base_class) = self.base_exception() {
+            members.extend(base_class.members());
+        }
+        members
+    }
+
+    pub fn base_exception(&self) -> Option<&Exception> {
+        self.base.as_ref()
+            .map(|type_ref| type_ref.definition())
+    }
+
+    // Note that `uses_classes` is defined on `Type`. But since `Exception` isn't a type, we have
+    // a separate implementation here. This is just a method on `Exception` with the same name.
+    pub fn uses_classes(&self) -> bool {
+        self.all_members().iter()
+            .any(|member| member.data_type.uses_classes())
     }
 }
 
@@ -239,6 +312,50 @@ impl Interface {
     pub(crate) fn add_operation(&mut self, operation: Operation) {
         self.operations.push(OwnedPtr::new(operation));
     }
+
+    pub fn operations(&self) -> Vec<&Operation> {
+        self.operations.iter()
+            .map(|operation_ptr| operation_ptr.borrow())
+            .collect()
+    }
+
+    pub fn all_inherited_operations(&self) -> Vec<&Operation> {
+        let mut operations = self.all_base_interfaces().iter()
+            .flat_map(|base_interface| base_interface.operations())
+            .collect::<Vec<&Operation>>();
+
+        // Dedup only works on sorted collections, so we have to sort the operations first.
+        operations.sort_by_key(|operation| operation.identifier());
+        operations.dedup_by_key(|operation| operation.identifier());
+        operations
+    }
+
+    pub fn all_operations(&self) -> Vec<&Operation> {
+        let mut operations = self.operations();
+        operations.extend(self.all_inherited_operations());
+
+        // Dedup only works on sorted collections, so we have to sort the operations first.
+        operations.sort_by_key(|operation| operation.identifier());
+        operations.dedup_by_key(|operation| operation.identifier());
+        operations
+    }
+
+    pub fn base_interfaces(&self) -> Vec<&Interface> {
+        self.bases.iter()
+            .map(|type_ref| type_ref.definition())
+            .collect()
+    }
+
+    pub fn all_base_interfaces(&self) -> Vec<&Interface> {
+        let mut bases = self.bases.iter()
+            .flat_map(|type_ref| type_ref.definition().base_interfaces())
+            .collect::<Vec<&Interface>>();
+
+        // Dedup only works on sorted collections, so we have to sort the bases first.
+        bases.sort_by_key(|base| base.module_scoped_identifier());
+        bases.dedup_by_key(|base| base.module_scoped_identifier());
+        bases
+    }
 }
 
 impl Type for Interface {
@@ -249,6 +366,14 @@ impl Type for Interface {
     fn min_wire_size(&self) -> u32 {
         // TODO write a comment explaining why this is 3.
         3
+    }
+
+    fn uses_classes(&self) -> bool {
+        false
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        TagFormat::FSize
     }
 }
 
@@ -262,6 +387,7 @@ pub struct Operation {
     pub identifier: Identifier,
     pub return_type: Vec<OwnedPtr<Parameter>>,
     pub parameters: Vec<OwnedPtr<Parameter>>,
+    pub is_idempotent: bool,
     pub parent: WeakPtr<Interface>,
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
@@ -273,6 +399,7 @@ impl Operation {
     pub(crate) fn new(
         identifier: Identifier,
         return_type: Vec<OwnedPtr<Parameter>>,
+        is_idempotent: bool,
         scope: Scope,
         attributes: Vec<Attribute>,
         comment: Option<DocComment>,
@@ -280,42 +407,96 @@ impl Operation {
     ) -> Self {
         let parameters = Vec::new();
         let parent = WeakPtr::create_uninitialized();
-        Operation { identifier, return_type, parameters, parent, scope, attributes, comment, location }
+        Operation { identifier, return_type, is_idempotent, parameters, parent, scope, attributes, comment, location }
     }
 
     pub(crate) fn add_parameter(&mut self, parameter: Parameter) {
         self.parameters.push(OwnedPtr::new(parameter));
     }
 
-    pub fn has_unstreamed_parameters(&self) -> bool {
+    pub fn parameters(&self) -> Vec<&Parameter> {
+        self.parameters.iter()
+            .map(|parameter_ptr| parameter_ptr.borrow())
+            .collect()
+    }
+
+    pub fn return_members(&self) -> Vec<&Parameter> {
+        self.return_type.iter()
+            .map(|parameter_ptr| parameter_ptr.borrow())
+            .collect()
+    }
+
+    pub fn has_nonstreamed_parameters(&self) -> bool {
         // Operations can have at most 1 streamed parameter. So, if it has more than 1 parameter
         // there must be unstreamed parameters. Otherwise we check if the 1 parameter is streamed.
         match self.parameters.len() {
             0 => false,
-            1 => !self.parameters[0].borrow().data_type.is_streamed,
+            1 => !self.parameters[0].borrow().is_streamed,
             _ => true,
         }
     }
 
-    pub fn has_unstreamed_return_members(&self) -> bool {
+    pub fn has_nonstreamed_return_members(&self) -> bool {
         // Operations can have at most 1 streamed return member. So, if it has more than 1 member
         // there must be unstreamed members. Otherwise we check if the 1 member is streamed.
         match self.return_type.len() {
             0 => false,
-            1 => !self.return_type[0].borrow().data_type.is_streamed,
+            1 => !self.return_type[0].borrow().is_streamed,
             _ => true,
         }
     }
 
-    pub fn get_unstreamed_parameters(&self) -> &[OwnedPtr<Parameter>] {
-        let length = self.parameters.len();
-        // Operations can have at most 1 streamed parameter, and it must be the last parameter.
-        if length > 0 && self.parameters[length - 1].borrow().data_type.is_streamed {
-            // Return a slice of the parameter vector with the last parameter (which is streamed)
-            // removed from it. It is safe to unwrap here, because we know that `length > 0`.
-            self.parameters.split_last().unwrap().1
+    pub fn nonstreamed_parameters(&self) -> Vec<&Parameter> {
+        self.parameters().iter()
+            .filter(|parameter| !parameter.is_streamed)
+            .cloned()
+            .collect()
+    }
+
+    pub fn nonstreamed_return_members(&self) -> Vec<&Parameter> {
+        self.return_members().iter()
+            .filter(|parameter| !parameter.is_streamed)
+            .cloned()
+            .collect()
+    }
+
+    pub fn streamed_parameter(&self) -> Option<&Parameter> {
+        // There can be only 1 streamed parameter and it must be the last parameter.
+        self.parameters().last()
+            .filter(|parameter| parameter.is_streamed)
+            .cloned()
+    }
+
+    pub fn streamed_return_member(&self) -> Option<&Parameter> {
+        // There can be only 1 streamed return member and it must be the last member.
+        self.return_members().last()
+            .filter(|parameter| parameter.is_streamed)
+            .cloned()
+    }
+
+    pub fn sends_classes(&self) -> bool {
+        self.parameters().iter()
+            .any(|parameter| parameter.data_type.uses_classes())
+    }
+
+    pub fn returns_classes(&self) -> bool {
+        self.return_members().iter()
+            .any(|parameter| parameter.data_type.uses_classes())
+    }
+
+    pub fn compress_arguments(&self) -> bool {
+        if let Some(attribute) = self.get_attribute("compress") {
+            attribute.contains(&"args".to_owned())
         } else {
-            &self.parameters
+            false
+        }
+    }
+
+    pub fn compress_return(&self) -> bool {
+        if let Some(attribute) = self.get_attribute("compress") {
+            attribute.contains(&"return".to_owned())
+        } else {
+            false
         }
     }
 }
@@ -400,6 +581,12 @@ impl Enum {
         self.enumerators.push(OwnedPtr::new(enumerator));
     }
 
+    pub fn enumerators(&self) -> Vec<&Enumerator> {
+        self.enumerators.iter()
+            .map(|enumerator_ptr| enumerator_ptr.borrow())
+            .collect()
+    }
+
     pub fn underlying_type(&self) -> &Primitive {
         // If the enum has an underlying type, return a reference to it's definition.
         // Otherwise, enums have a backing type of `byte` by default. Since `byte` is a type
@@ -417,7 +604,7 @@ impl Enum {
 
         // There might not be a minimum value if the enum is empty.
         if let Some(min) = values.clone().min() {
-            // A `min` existing guarantees a `max` does too, so it's safe to unwrap here.
+            // The existence of a `min` guarantees a `max` exists too, so it's safe to unwrap it.
             Some((min, values.max().unwrap()))
         } else {
             None
@@ -432,6 +619,17 @@ impl Type for Enum {
 
     fn min_wire_size(&self) -> u32 {
         self.underlying_type().min_wire_size()
+    }
+
+    fn uses_classes(&self) -> bool {
+        false
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        self.underlying.as_ref().map_or(
+            TagFormat::Size,                    // Default value if `underlying` == None
+            |data_type| data_type.tag_format(), // Expression to evaluate otherwise
+        )
     }
 }
 
@@ -495,11 +693,11 @@ impl TypeAlias {
 // some traits to forward to the underlying `TypeRef`, instead of being able to use macros.
 
 impl ScopedSymbol for TypeAlias {
-    fn module_scope(&self) -> &String {
+    fn module_scope(&self) -> &str {
         self.underlying.module_scope()
     }
 
-    fn parser_scope(&self) -> &String {
+    fn parser_scope(&self) -> &str {
         self.underlying.parser_scope()
     }
 
@@ -530,11 +728,19 @@ impl Entity for TypeAlias {}
 
 impl Type for TypeAlias {
     fn is_fixed_size(&self) -> bool {
-        self.underlying.definition().is_fixed_size()
+        self.underlying.is_fixed_size()
     }
 
     fn min_wire_size(&self) -> u32 {
-        self.underlying.definition().min_wire_size()
+        self.underlying.min_wire_size()
+    }
+
+    fn uses_classes(&self) -> bool {
+        self.underlying.uses_classes()
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        self.underlying.tag_format()
     }
 }
 
@@ -549,7 +755,6 @@ pub struct TypeRef<T: Element + ?Sized = dyn Type> {
     pub type_string: String,
     pub definition: WeakPtr<T>,
     pub is_optional: bool,
-    pub is_streamed: bool,
     pub scope: Scope,
     pub attributes: Vec<Attribute>,
     pub location: Location,
@@ -559,13 +764,12 @@ impl<T: Element + ?Sized + 'static> TypeRef<T> {
     pub(crate) fn new(
         type_string: String,
         is_optional: bool,
-        is_streamed: bool,
         scope: Scope,
         attributes: Vec<Attribute>,
         location: Location,
     ) -> Self {
         let definition = WeakPtr::create_uninitialized();
-        TypeRef { type_string, definition, is_optional, is_streamed, scope, attributes, location }
+        TypeRef { type_string, definition, is_optional, scope, attributes, location }
     }
 }
 
@@ -592,14 +796,22 @@ impl<T: Element + ?Sized + Type> Type for TypeRef<T> {
     fn min_wire_size(&self) -> u32 {
         let underlying = self.definition();
         if self.is_optional {
-            // TODO explain why classes and interfaces still take up 1 byte.
-            match underlying.kind() {
-                "class" | "interface" => 1,
+            match underlying.concrete_type() {
+                // TODO explain why classes and interfaces still take up 1 byte.
+                Types::Class(_) | Types::Interface(_) => 1,
                 _ => 0,
             }
         } else {
             underlying.min_wire_size()
         }
+    }
+
+    fn uses_classes(&self) -> bool {
+        self.definition().uses_classes()
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        self.definition().tag_format()
     }
 }
 
@@ -615,7 +827,7 @@ pub struct Sequence {
 
 impl Sequence {
     pub fn has_fixed_size_numeric_elements(&self) -> bool {
-        let mut definition = self.element_type.definition().concrete_type();
+        let mut definition = self.element_type.concrete_type();
 
         // If the elements are enums with an underlying type, check the underlying type instead.
         if let Types::Enum(enum_def) = definition {
@@ -638,6 +850,22 @@ impl Type for Sequence {
     fn min_wire_size(&self) -> u32 {
         1
     }
+
+    fn uses_classes(&self) -> bool {
+        self.element_type.uses_classes()
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        if self.element_type.is_fixed_size() {
+            if self.element_type.min_wire_size() == 1 {
+                TagFormat::OVSize
+            } else {
+                TagFormat::VSize
+            }
+        } else {
+            TagFormat::FSize
+        }
+    }
 }
 
 implement_Element_for!(Sequence, "sequence");
@@ -655,6 +883,19 @@ impl Type for Dictionary {
 
     fn min_wire_size(&self) -> u32 {
         1
+    }
+
+    fn uses_classes(&self) -> bool {
+        // It is illegal for key types to use classes, so we only have to check the value type.
+        self.value_type.uses_classes()
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        if self.key_type.is_fixed_size() || self.value_type.is_fixed_size() {
+            TagFormat::FSize
+        } else {
+            TagFormat::VSize
+        }
     }
 }
 
@@ -677,10 +918,11 @@ pub enum Primitive {
     Float,
     Double,
     String,
+    AnyClass,
 }
 
 impl Primitive {
-    fn is_numeric(&self) -> bool {
+    pub fn is_numeric(&self) -> bool {
         matches!(self,
             Self::Byte | Self::Short | Self::UShort | Self::Int | Self::UInt | Self::VarInt |
             Self::VarUInt | Self::Long | Self::ULong | Self::VarLong | Self::VarULong |
@@ -688,7 +930,13 @@ impl Primitive {
         )
     }
 
-    fn is_numeric_or_bool(&self) -> bool {
+    pub fn is_unsigned_numeric(&self) -> bool {
+        matches!(self,
+            Self::Byte | Self::UShort | Self::UInt | Self::VarUInt | Self::ULong | Self::VarULong
+        )
+    }
+
+    pub fn is_numeric_or_bool(&self) -> bool {
         self.is_numeric() || matches!(self, Self::Bool)
     }
 }
@@ -717,7 +965,33 @@ impl Type for Primitive {
             Self::VarULong => 1,
             Self::Float => 4,
             Self::Double => 8,
-            Self::String => 1,
+            Self::String => 1, // At least 1 byte for the empty string.
+            Self::AnyClass => 1, // At least 1 byte to encode an index (instead of an instance).
+        }
+    }
+
+    fn uses_classes(&self) -> bool {
+        !matches!(self, Self::AnyClass)
+    }
+
+    fn tag_format(&self) -> TagFormat {
+        match self {
+            Self::Bool     => TagFormat::F1,
+            Self::Byte     => TagFormat::F1,
+            Self::Short    => TagFormat::F2,
+            Self::UShort   => TagFormat::F2,
+            Self::Int      => TagFormat::F4,
+            Self::UInt     => TagFormat::F4,
+            Self::VarInt   => TagFormat::VInt,
+            Self::VarUInt  => TagFormat::VInt,
+            Self::Long     => TagFormat::F8,
+            Self::ULong    => TagFormat::F8,
+            Self::VarLong  => TagFormat::VInt,
+            Self::VarULong => TagFormat::VInt,
+            Self::Float    => TagFormat::F4,
+            Self::Double   => TagFormat::F8,
+            Self::String   => TagFormat::OVSize,
+            Self::AnyClass => TagFormat::Class,
         }
     }
 }
@@ -740,6 +1014,7 @@ impl Element for Primitive {
             Self::Float => "float",
             Self::Double => "double",
             Self::String => "string",
+            Self::AnyClass => "any class",
         }
     }
 }
@@ -767,11 +1042,11 @@ impl Attribute {
         prefix: Option<String>,
         directive: String,
         arguments: Vec<String>,
-        location: Location
+        location: Location,
     ) -> Self {
         let prefixed_directive = prefix.clone().map_or(
-            directive.clone(),                    // Default value if prefix == None
-            |prefix| prefix + ":" + &directive    // Function to call if prefix == Some
+            directive.clone(),                  // Default value if prefix == None
+            |prefix| prefix + ":" + &directive, // Function to call if prefix == Some
         );
         Attribute { prefix, directive, prefixed_directive, arguments, location }
     }

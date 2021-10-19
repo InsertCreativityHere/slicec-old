@@ -2,7 +2,7 @@
 
 use super::comments::DocComment;
 use super::slice::{Attribute, Identifier};
-use super::util::Scope;
+use super::util::{Scope, TagFormat};
 use super::wrappers::{AsElements, AsTypes};
 use crate::slice_file::Location;
 
@@ -15,13 +15,13 @@ pub trait Symbol: Element {
 }
 
 pub trait ScopedSymbol: Symbol {
-    fn module_scope(&self) -> &String;
-    fn parser_scope(&self) -> &String;
+    fn module_scope(&self) -> &str;
+    fn parser_scope(&self) -> &str;
     fn raw_scope(&self) -> &Scope;
 }
 
 pub trait NamedSymbol: ScopedSymbol {
-    fn identifier(&self) -> &String;
+    fn identifier(&self) -> &str;
     fn raw_identifier(&self) -> &Identifier;
 
     fn module_scoped_identifier(&self) -> String {
@@ -57,6 +57,8 @@ pub trait Contained<T: Entity + ?Sized>: Entity {
 pub trait Type: Element + AsTypes {
     fn is_fixed_size(&self) -> bool;
     fn min_wire_size(&self) -> u32;
+    fn uses_classes(&self) -> bool;
+    fn tag_format(&self) -> TagFormat;
 }
 
 macro_rules! implement_Element_for {
@@ -82,11 +84,11 @@ macro_rules! implement_Symbol_for {
 macro_rules! implement_Scoped_Symbol_for {
     ($type:ty$(, $($bounds:tt)+)?) => {
         impl$(<T: $($bounds)+>)? ScopedSymbol for $type {
-            fn module_scope(&self) -> &String {
+            fn module_scope(&self) -> &str {
                 &self.scope.raw_module_scope
             }
 
-            fn parser_scope(&self) -> &String {
+            fn parser_scope(&self) -> &str {
                 &self.scope.raw_parser_scope
             }
 
@@ -100,7 +102,7 @@ macro_rules! implement_Scoped_Symbol_for {
 macro_rules! implement_Named_Symbol_for {
     ($type:ty) => {
         impl NamedSymbol for $type {
-            fn identifier(&self) -> &String {
+            fn identifier(&self) -> &str {
                 &self.identifier.value
             }
 

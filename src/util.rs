@@ -114,7 +114,7 @@ impl<T: ?Sized> WeakPtr<T> {
 
     // This isn't marked as unsafe because it's assumed all WeakPtr live inside the AST, alongside
     // the OwnedPtr. Since the entire AST goes out of scope at the same time when the program ends,
-    // it's impossible to have a dangling pointer here, and so, this function is safe.
+    // it's impossible to have a dangling pointer here, and so, this function is always safe.
     //
     // Note that it IS still possible to call this on an uninitialized WeakPtr, which will cause a
     // panic. But this isn't 'unsafe' in the technical sense of involving unsafe Rust.

@@ -155,7 +155,7 @@ impl SliceParser {
             [prelude(prelude), class_start(class_start), data_member(members)..] => {
                 let (identifier, location, base) = class_start;
                 let (attributes, comment) = prelude;
-                let mut class = Class::new(identifier, base, scope, attributes, comment, location);
+                let mut class = Class::new(identifier, None, base, scope, attributes, comment, location);
                 for member in members {
                     class.add_member(member);
                 }
@@ -372,12 +372,12 @@ impl SliceParser {
                 let (attributes, comment) = prelude;
                 let (return_type, identifier) = operation_start;
                 pop_scope(&input);
-                Operation::new(identifier, return_type, scope, attributes, comment, location)
+                Operation::new(identifier, return_type, false, scope, attributes, comment, location)
             },
             [prelude(prelude), operation_start(operation_start), parameter_list(parameters)] => {
                 let (attributes, comment) = prelude;
                 let (return_type, identifier) = operation_start;
-                let mut operation = Operation::new(identifier, return_type, scope, attributes, comment, location);
+                let mut operation = Operation::new(identifier, return_type, false, scope, attributes, comment, location);
                 for parameter in parameters {
                     operation.add_parameter(parameter);
                 }
@@ -581,10 +581,9 @@ impl SliceParser {
             .collect();
 
         let is_optional = input.as_str().ends_with('?');
-        let is_streamed = false; // `is_streamed` is always set after the fact.
         let scope = get_scope(&input);
         let mut type_ref: TypeRef<dyn Type> =
-            TypeRef::new(type_name, is_optional, is_streamed, scope, attributes, location);
+            TypeRef::new(type_name, is_optional, scope, attributes, location);
 
         // Resolve and/or construct non user defined types.
         match type_node.as_rule() {
