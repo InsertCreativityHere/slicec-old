@@ -750,7 +750,7 @@ implement_Named_Symbol_for!(TypeAlias);
 implement_Commentable_for!(TypeAlias);
 implement_Contained_for!(TypeAlias, Module);
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TypeRef<T: Element + ?Sized = dyn Type> {
     pub type_string: String,
     pub definition: WeakPtr<T>,
