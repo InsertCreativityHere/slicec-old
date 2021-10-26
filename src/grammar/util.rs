@@ -10,11 +10,17 @@ pub struct Scope {
 
 impl Scope {
     pub fn new(name: &str, is_module: bool) -> Scope {
-        let mut module_scope = Vec::new();
-        if is_module {
-            module_scope.push(name.to_owned());
-        }
-        let parser_scope = vec![name.to_owned()];
+        let parser_scope = name
+            .split("::")
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_owned())
+            .collect::<Vec<_>>();
+
+        let module_scope = if is_module {
+            parser_scope.clone()
+        } else {
+            Vec::new()
+        };
 
         Scope {
             raw_module_scope: module_scope.join("::"),
