@@ -1,6 +1,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
 pub mod ast;
+pub mod command_line;
 pub mod code_gen_util;
 pub mod error;
 pub mod grammar;
