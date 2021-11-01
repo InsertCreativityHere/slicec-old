@@ -91,17 +91,17 @@ impl Ast {
         new_ast
     }
 
-    /// Moves a module into the AST.
+    /// Moves a [Module] into the AST, and returns a [WeakPtr] to it.
     /// It also visits through the module to index it and its contents into the AST's lookup tables.
     ///
     /// This should only be called by the parser.
-    pub(crate) fn add_module(&mut self, module_def: Module) {
+    pub(crate) fn add_module(&mut self, module_def: Module) -> WeakPtr<Module> {
         // Move the module onto the heap so it can be referenced via pointer.
         let mut module_ptr = OwnedPtr::new(module_def);
 
         // Add the module into the AST's entity lookup table.
-        let weak_ptr = downgrade_as!(module_ptr, dyn Entity);
-        self.entity_lookup_table.insert(module_ptr.borrow().parser_scoped_identifier(), weak_ptr);
+        let entity_ptr = downgrade_as!(module_ptr, dyn Entity);
+        self.entity_lookup_table.insert(module_ptr.borrow().parser_scoped_identifier(), entity_ptr);
 
         // Recursively visit it's contents and add them into the lookup table too.
         let mut visitor = LookupTableBuilder {
@@ -112,8 +112,10 @@ impl Ast {
         // and haven't dereferenced any of the pointers to it that we've constructed.
         unsafe { module_ptr.visit_ptr_with(&mut visitor); }
 
-        // Add the module into the AST.
+        // Move the module into the AST and return a WeakPtr to it.
+        let weak_ptr = module_ptr.downgrade();
         self.ast.push(module_ptr);
+        weak_ptr
     }
 
     /// Moves an anonymous [Type] into the AST.
