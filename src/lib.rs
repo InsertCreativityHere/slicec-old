@@ -13,15 +13,15 @@ pub mod validator;
 pub mod visitor;
 
 use crate::ast::Ast;
+use crate::command_line::SliceOptions;
 use crate::error::ErrorLevel;
-use crate::slice_file::Location;
+use crate::slice_file::{Location, SliceFile};
+use std::collections::HashMap;
 
-// TODO rename this!
-pub fn main() {
+pub fn parse_from_options(options: &SliceOptions) -> HashMap<String, SliceFile> {
     // Initialize the global instances of the `Ast` and the `ErrorHandler`.
     global_state::initialize();
-
-    // TODO
+    unsafe { parser::parse_files(borrow_mut_ast(), options) }
 }
 
 // TODO comments

@@ -2,10 +2,12 @@
 use super::comments::CommentParser;
 use crate::ast::Ast;
 use crate::grammar::*;
-use crate::slice_file::Location;
+use crate::slice_file::{Location, SliceFile};
 use crate::upcast_weak_as;
 use crate::ptr_util::{OwnedPtr, WeakPtr};
 use std::cell::RefCell;
+use std::default::Default;
+use std::fs;
 
 use pest::error::ErrorVariant as PestErrorVariant;
 use pest_consume::{match_nodes, Error as PestError, Parser as PestParser};
@@ -47,6 +49,51 @@ struct ParserData<'ast> {
 #[derive(PestParser)]
 #[grammar = "parser/slice.pest"]
 pub(super) struct SliceParser;
+
+impl SliceParser {
+    pub fn try_parse_file(&self, file: &str, is_source: bool, ast: &mut Ast) -> Option<SliceFile> {
+        match self.parse_file(file, is_source, ast) {
+            Ok(slice_file) => {
+                Some(slice_file)
+            }
+            Err(message) => {
+                crate::report_error(message, None);
+                None
+            }
+        }
+    }
+
+    fn parse_file(&self, file: &str, is_source: bool, ast: &mut Ast) -> Result<SliceFile, String> {
+        let user_data = RefCell::new(ParserData {
+            ast,
+            current_file: file.to_owned(),
+            current_enum_value: 0,
+            current_scope: Scope::default(),
+        });
+
+        // Read the raw text from the file, and parse it into a raw ast.
+        let raw_text = fs::read_to_string(&file).map_err(|e| e.to_string())?;
+        let node = SliceParser::parse_with_userdata(Rule::main, &raw_text, &user_data)
+            .map_err(|e| e.to_string())?; // TODO maybe make this error print prettier?
+        let raw_ast = node.single().expect("Failed to unwrap raw_ast!");
+
+        // Consume the raw ast into an unpatched ast, then store it in a `SliceFile`.
+        let (file_attributes, file_contents) =
+            SliceParser::main(raw_ast).map_err(|e| e.to_string())?;
+
+        let top_level_modules = file_contents.into_iter().map(|module_def| {
+            ast.add_module(module_def)
+        }).collect::<Vec<_>>();
+
+        Ok(SliceFile::new(
+            file.to_owned(),
+            raw_text,
+            top_level_modules,
+            file_attributes,
+            is_source,
+        ))
+    }
+}
 
 #[pest_consume::parser]
 impl SliceParser {
