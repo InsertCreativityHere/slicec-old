@@ -1,7 +1,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
 use super::comments::DocComment;
-use super::slice::{Attribute, Identifier};
+use super::slice::{Attribute, Identifier, TypeRef};
 use super::util::{Scope, TagFormat};
 use super::wrappers::{AsElements, AsTypes};
 use crate::slice_file::Location;
@@ -52,6 +52,11 @@ pub trait Container<T>: Entity {
 
 pub trait Contained<T: Entity + ?Sized>: Entity {
     fn parent(&self) -> &T;
+}
+
+pub trait Member: Entity {
+    fn data_type(&self) -> &TypeRef;
+    fn tag(&self) -> Option<u32>;
 }
 
 pub trait Type: Element + AsTypes {
@@ -184,6 +189,20 @@ macro_rules! implement_Contained_for {
     };
 }
 
+macro_rules! implement_Member_for {
+    ($type:ty) => {
+        impl Member for $type {
+            fn data_type(&self) -> &TypeRef {
+                &self.data_type
+            }
+
+            fn tag(&self) -> Option<u32> {
+                self.tag // Return by copy
+            }
+        }
+    };
+}
+
 pub(crate) use implement_Element_for;
 pub(crate) use implement_Symbol_for;
 pub(crate) use implement_Named_Symbol_for;
@@ -193,3 +212,4 @@ pub(crate) use implement_Commentable_for;
 pub(crate) use implement_Entity_for;
 pub(crate) use implement_Container_for;
 pub(crate) use implement_Contained_for;
+pub(crate) use implement_Member_for;

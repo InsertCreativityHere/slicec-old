@@ -294,6 +294,7 @@ impl DataMember {
 implement_Element_for!(DataMember, "data member");
 implement_Entity_for!(DataMember);
 implement_Contained_for!(DataMember, dyn Container<OwnedPtr<DataMember>> + 'static);
+implement_Member_for!(DataMember);
 
 #[derive(Debug)]
 pub struct Interface {
@@ -560,6 +561,7 @@ impl Element for Parameter {
 
 implement_Entity_for!(Parameter);
 implement_Contained_for!(Parameter, Operation);
+implement_Member_for!(Parameter);
 
 #[derive(Debug)]
 pub struct Enum {
