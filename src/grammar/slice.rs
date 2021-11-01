@@ -39,6 +39,18 @@ impl Module {
     pub fn is_top_level(&self) -> bool {
         self.parent.is_none()
     }
+
+    pub fn submodules(&self) -> Vec<&Module> {
+        self.contents.iter()
+            .filter_map(|definition| {
+                if let Definition::Module(module_def) = definition {
+                    Some(module_def.borrow())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 implement_Element_for!(Module, "module");
@@ -592,7 +604,7 @@ impl Enum {
         // Otherwise, enums have a backing type of `byte` by default. Since `byte` is a type
         // defined by the compiler, we fetch it's definition directly from the global AST.
         self.underlying.as_ref().map_or(
-            Ast::lookup_primitive(&crate::borrow_ast().primitive_cache, "byte").unwrap().borrow(),
+            Ast::lookup_primitive(&crate::borrow_ast().primitive_cache, "byte").borrow(),
             |data_type| data_type.definition(),
         )
     }

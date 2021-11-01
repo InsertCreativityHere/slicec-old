@@ -1,6 +1,6 @@
 
-use crate::ast::Ast;
 use super::comments::CommentParser;
+use crate::ast::Ast;
 use crate::grammar::*;
 use crate::slice_file::Location;
 use crate::upcast_weak_as;
@@ -106,7 +106,7 @@ impl SliceParser {
 
     fn struct_def(input: PestNode) -> PestResult<Struct> {
         let scope = get_scope(&input);
-         Ok(match_nodes!(input.children();
+        Ok(match_nodes!(input.children();
             [prelude(prelude), struct_start(struct_start), data_member(members)..] => {
                 let (identifier, location) = struct_start;
                 let (attributes, comment) = prelude;
@@ -632,7 +632,6 @@ impl SliceParser {
             &input.user_data().borrow().ast.primitive_cache,
             input.as_str(),
         )
-        .unwrap()
         .downgrade())
     }
 

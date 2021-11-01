@@ -13,7 +13,7 @@ pub(super) fn patch_types(ast: &mut Ast) {
         unsafe { module.visit_ptr_with(&mut patcher); }
     }
 
-    for type_ptr in &mut ast.inline_types {
+    for type_ptr in &mut ast.anonymous_types {
         unsafe {
             // Sequences and dictionaries are the only anonymous types that need patching.
             match type_ptr.borrow_mut().concrete_type_mut() {
