@@ -1,6 +1,6 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Scope {
     pub raw_module_scope: String,
     pub module_scope: Vec<String>,
