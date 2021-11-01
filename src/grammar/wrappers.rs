@@ -3,7 +3,7 @@
 use super::slice::*;
 use super::traits::*;
 use super::util::TagFormat;
-use crate::util::OwnedPtr;
+use crate::ptr_util::OwnedPtr;
 
 macro_rules! generate_definition_wrapper {
     ($($variant:ident),*) => {

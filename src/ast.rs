@@ -5,7 +5,7 @@ use crate::upcast_owned_as;
 
 use crate::grammar::*;
 use crate::ptr_visitor::PtrVisitor;
-use crate::util::{OwnedPtr, WeakPtr};
+use crate::ptr_util::{OwnedPtr, WeakPtr};
 use std::collections::HashMap;
 
 /// The AST (Abstract Syntax Tree) is the heart of the compiler, containing all the

@@ -1,7 +1,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
 use crate::grammar::{Attribute, Module};
-use crate::util::WeakPtr;
+use crate::ptr_util::WeakPtr;
 
 #[derive(Clone, Debug)]
 pub struct Location {

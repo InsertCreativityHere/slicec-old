@@ -1,7 +1,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
 use crate::grammar::*;
-use crate::util::OwnedPtr;
+use crate::ptr_util::OwnedPtr;
 
 /// The `PtrVisitor` trait is used to recursively visit through a tree of slice elements.
 ///
@@ -46,7 +46,6 @@ pub trait PtrVisitor {
     /// before it visits through the module's contents.
     ///
     /// This shouldn't be called by users. To visit a module, use `module_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -59,7 +58,6 @@ pub trait PtrVisitor {
     /// after it has visited through the module's contents.
     ///
     /// This shouldn't be called by users. To visit a module, use `module_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -72,7 +70,6 @@ pub trait PtrVisitor {
     /// before it visits through the structs' contents.
     ///
     /// This shouldn't be called by users. To visit a struct, use `struct_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -85,7 +82,6 @@ pub trait PtrVisitor {
     /// after it has visited through the struct' contents.
     ///
     /// This shouldn't be called by users. To visit a struct, use `struct_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -98,7 +94,6 @@ pub trait PtrVisitor {
     /// before it visits through the class' contents.
     ///
     /// This shouldn't be called by users. To visit a class, use `class_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -111,7 +106,6 @@ pub trait PtrVisitor {
     /// after it has visited through the class' contents.
     ///
     /// This shouldn't be called by users. To visit a class, use `class_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -124,7 +118,6 @@ pub trait PtrVisitor {
     /// before it visits through the exception's contents.
     ///
     /// This shouldn't be called by users. To visit a exception, use `exception_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -137,7 +130,6 @@ pub trait PtrVisitor {
     /// after it has visited through the exception's contents.
     ///
     /// This shouldn't be called by users. To visit a exception, use `exception_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -150,7 +142,6 @@ pub trait PtrVisitor {
     /// before it visits through the interface's contents.
     ///
     /// This shouldn't be called by users. To visit a interface, use `interface_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -163,7 +154,6 @@ pub trait PtrVisitor {
     /// after it has visited through the interface's contents.
     ///
     /// This shouldn't be called by users. To visit a interface, use `interface_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -176,7 +166,6 @@ pub trait PtrVisitor {
     /// before it visits through the enum's contents.
     ///
     /// This shouldn't be called by users. To visit a enum, use `enum_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -189,7 +178,6 @@ pub trait PtrVisitor {
     /// after it has visited through the enum's contents.
     ///
     /// This shouldn't be called by users. To visit a enum, use `enum_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -202,7 +190,6 @@ pub trait PtrVisitor {
     /// before it visits through the operation's contents.
     ///
     /// This shouldn't be called by users. To visit a operation, use `operation_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -215,7 +202,6 @@ pub trait PtrVisitor {
     /// after it has visited through the operation's contents.
     ///
     /// This shouldn't be called by users. To visit a operation, use `operation_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -227,7 +213,6 @@ pub trait PtrVisitor {
     /// This function is called by the visitor when it visits a [TypeAlias].
     ///
     /// This shouldn't be called by users. To visit a type alias, use `type_alias_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -239,7 +224,6 @@ pub trait PtrVisitor {
     /// This function is called by the visitor when it visits a [DataMember].
     ///
     /// This shouldn't be called by users. To visit a data member, use `member_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -251,7 +235,6 @@ pub trait PtrVisitor {
     /// This function is called by the visitor when it visits a [Parameter].
     ///
     /// This shouldn't be called by users. To visit a parameter, use `parameter_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -263,7 +246,6 @@ pub trait PtrVisitor {
     /// This function is called by the visitor when it visits a [return member](Parameter).
     ///
     /// This shouldn't be called by users. To visit a return member, use `member_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///
@@ -275,7 +257,6 @@ pub trait PtrVisitor {
     /// This function is called by the visitor when it visits an [Enumerator].
     ///
     /// This shouldn't be called by users. To visit a enumerator, use `type_alias_ptr.visit_ptr_with`.
-    /// Unlike [Visitor], this function visits [OwnedPtr]s of elements, instead of direct borrows.
     ///
     /// # Safety
     ///

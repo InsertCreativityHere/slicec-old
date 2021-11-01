@@ -4,7 +4,7 @@ use crate::ast::Ast;
 use crate::grammar::*;
 use crate::slice_file::Location;
 use crate::upcast_weak_as;
-use crate::util::{OwnedPtr, WeakPtr};
+use crate::ptr_util::{OwnedPtr, WeakPtr};
 use std::cell::RefCell;
 
 use pest::error::ErrorVariant as PestErrorVariant;

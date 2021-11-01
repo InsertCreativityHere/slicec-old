@@ -3,7 +3,7 @@
 use crate::ast::Ast;
 use crate::grammar::*;
 use crate::ptr_visitor::PtrVisitor;
-use crate::util::{OwnedPtr, WeakPtr};
+use crate::ptr_util::{OwnedPtr, WeakPtr};
 use std::collections::HashMap;
 
 pub(super) fn patch_types(ast: &mut Ast) {

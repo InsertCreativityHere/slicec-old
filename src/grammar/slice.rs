@@ -6,7 +6,7 @@ use super::util::{Scope, TagFormat};
 use super::wrappers::*;
 use crate::ast::Ast;
 use crate::slice_file::Location;
-use crate::util::*;
+use crate::ptr_util::{OwnedPtr, WeakPtr};
 
 #[derive(Debug)]
 pub struct Module {

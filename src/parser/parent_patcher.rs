@@ -4,7 +4,7 @@ use crate::ast::Ast;
 use crate::downgrade_as;
 use crate::grammar::*;
 use crate::ptr_visitor::PtrVisitor;
-use crate::util::{OwnedPtr, WeakPtr};
+use crate::ptr_util::{OwnedPtr, WeakPtr};
 
 pub(super) fn patch_parents(ast: &mut Ast) {
     let mut patcher = ParentPatcher;

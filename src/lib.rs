@@ -6,7 +6,7 @@ pub mod grammar;
 pub mod parser;
 pub mod ptr_visitor;
 pub mod slice_file;
-pub mod util;
+pub mod ptr_util;
 pub mod validator;
 pub mod visitor;
 
@@ -56,7 +56,7 @@ fn report_error_impl(message: String, location: Option<Location>, severity: Erro
 mod global_state {
     use crate::ast::Ast;
     use crate::error::ErrorReporter;
-    use crate::util::ThreadSafe;
+    use crate::ptr_util::ThreadSafe;
     use once_cell::unsync::OnceCell;
     use std::cell::UnsafeCell;
 
