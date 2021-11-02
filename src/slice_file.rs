@@ -69,4 +69,15 @@ impl SliceFile {
             line_positions,
         }
     }
+
+    /// Retrieves a formatted snippet from the slice file. This method expects `start < end`.
+    pub(crate) fn get_snippet(&self, start: (usize, usize), end: (usize, usize)) -> String {
+        // TODO we should return nice snippets that snap whole lines and have underlining, etc...
+        self.raw_text[self.raw_pos(start)..self.raw_pos(end)].to_owned() + "\n"
+    }
+
+    /// Converts the provided line and column numbers into an index in the file's raw text.
+    fn raw_pos(&self, (line, col): (usize, usize)) -> usize {
+        self.line_positions[line - 1] + (col - 1)
+    }
 }

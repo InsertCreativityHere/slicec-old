@@ -4,7 +4,6 @@ use super::comments::DocComment;
 use super::traits::*;
 use super::util::{Scope, TagFormat};
 use super::wrappers::*;
-use crate::ast::Ast;
 use crate::slice_file::Location;
 use crate::ptr_util::{OwnedPtr, WeakPtr};
 
