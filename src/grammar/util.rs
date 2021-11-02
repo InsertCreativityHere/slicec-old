@@ -1,5 +1,7 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
+use std::fmt;
+
 #[derive(Clone, Debug, Default)]
 pub struct Scope {
     pub raw_module_scope: String,
@@ -110,4 +112,21 @@ pub enum TagFormat {
 
     /// Pseudo non-encoded format: like VSize but the size is optimized out.
     OVSize,
+}
+
+impl fmt::Display for TagFormat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TagFormat::F1 => write!(f, "F1"),
+            TagFormat::F2 => write!(f, "F2"),
+            TagFormat::F4 => write!(f, "F4"),
+            TagFormat::F8 => write!(f, "F8"),
+            TagFormat::Size => write!(f, "Size"),
+            TagFormat::VSize => write!(f, "VSize"),
+            TagFormat::FSize => write!(f, "FSize"),
+            TagFormat::Class => write!(f, "Class"),
+            TagFormat::VInt => write!(f, "VInt"),
+            TagFormat::OVSize => write!(f, "OVSize"),
+        }
+    }
 }
