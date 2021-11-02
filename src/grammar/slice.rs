@@ -612,7 +612,7 @@ impl Enum {
         // Otherwise, enums have a backing type of `byte` by default. Since `byte` is a type
         // defined by the compiler, we fetch it's definition directly from the global AST.
         self.underlying.as_ref().map_or(
-            Ast::lookup_primitive(&crate::borrow_ast().primitive_cache, "byte").borrow(),
+            crate::borrow_ast().lookup_primitive("byte").borrow(),
             |data_type| data_type.definition(),
         )
     }

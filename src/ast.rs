@@ -160,13 +160,6 @@ impl Ast {
         self.primitive_cache.insert(identifier, primitive_ptr);
     }
 
-    // =============================================================================================
-    // These lookup functions are associated functions instead of methods so that the AST can be
-    // mutated without locking down access to them.
-    // Methods require borrowing the entire AST, which is impossible if some of it's contents have
-    // been mutably borrowed somewhere else (such as while visiting, or patching).
-    // =============================================================================================
-
     /// Looks up a [Primitive] type in the AST, by it's slice keyword (Ex: `varulong`).
     /// If the primitive exists, it returns a reference to the `OwnedPtr` holding it.
     ///
@@ -185,13 +178,17 @@ impl Ast {
     /// let ast = Ast::new();
     /// let ulong = Ast::lookup_type(&ast.primitive_cache, "ulong");
     /// ```
-    pub fn lookup_primitive<'ast>(
-        primitive_cache: &'ast HashMap<&'static str, OwnedPtr<Primitive>>,
-        identifier: &str,
-    ) -> &'ast OwnedPtr<Primitive> {
-        primitive_cache.get(identifier)
+    pub fn lookup_primitive(&self, identifier: &str) -> &OwnedPtr<Primitive> {
+        self.primitive_cache.get(identifier)
             .expect(&format!("No Primitive type exists with the name '{}'", identifier))
     }
+
+    // =============================================================================================
+    // These lookup functions are associated functions instead of methods so that the AST can be
+    // mutated without locking down access to them.
+    // Methods require borrowing the entire AST, which is impossible if some of it's contents have
+    // been mutably borrowed somewhere else (such as while visiting, or patching).
+    // =============================================================================================
 
     /// Looks up a [Type] in the AST, by it's **module** scoped identifier.
     /// The behavior of this function depends on whether the scoped identifier is global or relative.

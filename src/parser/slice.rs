@@ -675,11 +675,7 @@ impl SliceParser {
 
     fn primitive(input: PestNode) -> PestResult<WeakPtr<Primitive>> {
         // Look the primitive up in the AST's primitive cache.
-        Ok(Ast::lookup_primitive(
-            &input.user_data().borrow().ast.primitive_cache,
-            input.as_str(),
-        )
-        .downgrade())
+        Ok(input.user_data().borrow().ast.lookup_primitive(input.as_str()).downgrade())
     }
 
     fn prelude(input: PestNode) -> PestResult<(Vec<Attribute>, Option<DocComment>)> {
