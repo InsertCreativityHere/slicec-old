@@ -609,10 +609,10 @@ impl Enum {
 
     pub fn underlying_type(&self) -> &Primitive {
         // If the enum has an underlying type, return a reference to it's definition.
-        // Otherwise, enums have a backing type of `byte` by default. Since `byte` is a type
+        // Otherwise, enums have a backing type of `int` by default. Since `int` is a type
         // defined by the compiler, we fetch it's definition directly from the global AST.
         self.underlying.as_ref().map_or(
-            crate::borrow_ast().lookup_primitive("byte").borrow(),
+            crate::borrow_ast().lookup_primitive("int").borrow(),
             |data_type| data_type.definition(),
         )
     }
