@@ -504,7 +504,7 @@ impl Operation {
     }
 
     pub fn compress_arguments(&self) -> bool {
-        if let Some(attribute) = self.get_attribute("compress") {
+        if let Some(attribute) = self.get_attribute("compress", false) {
             attribute.contains(&"args".to_owned())
         } else {
             false
@@ -512,7 +512,7 @@ impl Operation {
     }
 
     pub fn compress_return(&self) -> bool {
-        if let Some(attribute) = self.get_attribute("compress") {
+        if let Some(attribute) = self.get_attribute("compress", false) {
             attribute.contains(&"return".to_owned())
         } else {
             false
@@ -731,16 +731,8 @@ impl Attributable for TypeAlias {
         self.underlying.attributes()
     }
 
-    fn has_attribute(&self, directive: &str) -> bool {
-        self.underlying.has_attribute(directive)
-    }
-
-    fn get_attribute(&self, directive: &str) -> Option<&Vec<String>> {
-        self.underlying.get_attribute(directive)
-    }
-
-    fn get_raw_attribute(&self, directive: &str) -> Option<&Attribute> {
-        self.underlying.get_raw_attribute(directive)
+    fn get_raw_attribute(&self, directive: &str, recurse: bool) -> Option<&Attribute> {
+        self.underlying.get_raw_attribute(directive, recurse)
     }
 }
 
@@ -805,6 +797,25 @@ impl<T: Element + ?Sized + Type> TypeRef<T> {
     }
 }
 
+impl<T: Element + ?Sized> Attributable for TypeRef<T> {
+    fn attributes(&self) -> &Vec<Attribute> {
+        &self.attributes
+    }
+
+    fn get_raw_attribute(&self, directive: &str, recurse: bool) -> Option<&Attribute> {
+        if recurse {
+            panic!("Cannot recursively get attributes on a typeref");
+        }
+
+        for attribute in &self.attributes {
+            if attribute.prefixed_directive == directive {
+                return Some(attribute);
+            }
+        }
+        None
+    }
+}
+
 // Technically, `TypeRef` is NOT a type; It represents somewhere that a type is referenced.
 // But, for convenience, we implement type on it, so that users of the API can call methods on
 // the underlying type without having to first call `.definition()` all the time.
@@ -838,7 +849,6 @@ impl<T: Element + ?Sized + Type> Type for TypeRef<T> {
 implement_Element_for!(TypeRef<T>, "type reference", Element + ?Sized);
 implement_Symbol_for!(TypeRef<T>, Element + ?Sized);
 implement_Scoped_Symbol_for!(TypeRef<T>, Element + ?Sized);
-implement_Attributable_for!(TypeRef<T>, Element + ?Sized);
 
 #[derive(Debug)]
 pub struct Sequence {

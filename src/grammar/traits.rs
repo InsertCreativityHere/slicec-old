@@ -35,9 +35,18 @@ pub trait NamedSymbol: ScopedSymbol {
 
 pub trait Attributable: Symbol {
     fn attributes(&self) -> &Vec<Attribute>;
-    fn has_attribute(&self, directive: &str) -> bool;
-    fn get_attribute(&self, directive: &str) -> Option<&Vec<String>>;
-    fn get_raw_attribute(&self, directive: &str) -> Option<&Attribute>;
+
+    fn has_attribute(&self, directive: &str, recurse: bool) -> bool {
+        self.get_raw_attribute(directive, recurse).is_some()
+    }
+
+    fn get_attribute(&self, directive: &str, recurse: bool) -> Option<&Vec<String>> {
+        self.get_raw_attribute(directive, recurse).and_then(
+            |attribute| Some(&attribute.arguments)
+        )
+    }
+
+    fn get_raw_attribute(&self, directive: &str, recurse: bool) -> Option<&Attribute>;
 }
 
 pub trait Commentable: Symbol {
@@ -119,29 +128,23 @@ macro_rules! implement_Named_Symbol_for {
 }
 
 macro_rules! implement_Attributable_for {
-    ($type:ty$(, $($bounds:tt)+)?) => {
-        impl$(<T: $($bounds)+>)? Attributable for $type {
+    ($type:ty) => {
+        impl Attributable for $type {
             fn attributes(&self) -> &Vec<Attribute> {
                 &self.attributes
             }
 
-            fn has_attribute(&self, directive: &str) -> bool {
-                self.get_raw_attribute(directive).is_some()
-            }
-
-            fn get_attribute(&self, directive: &str) -> Option<&Vec<String>> {
-                self.get_raw_attribute(directive).and_then(
-                    |attribute| Some(&attribute.arguments)
-                )
-            }
-
-            fn get_raw_attribute(&self, directive: &str) -> Option<&Attribute> {
+            fn get_raw_attribute(&self, directive: &str, recurse: bool) -> Option<&Attribute> {
                 for attribute in &self.attributes {
                     if attribute.prefixed_directive == directive {
                         return Some(attribute);
                     }
                 }
-                None
+
+                match self.parent() {
+                    Some(parent) if recurse => parent.get_raw_attribute(directive, recurse),
+                    _ => None
+                }
             }
         }
     };
