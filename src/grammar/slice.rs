@@ -53,6 +53,12 @@ impl Module {
     }
 }
 
+impl Contained<Module> for Module {
+    fn parent(&self) -> Option<&Module> {
+        self.parent.as_ref().map(|ptr| ptr.borrow())
+    }
+}
+
 implement_Element_for!(Module, "module");
 implement_Entity_for!(Module);
 implement_Container_for!(Module, Definition, contents);

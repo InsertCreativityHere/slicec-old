@@ -51,7 +51,7 @@ pub trait Container<T>: Entity {
 }
 
 pub trait Contained<T: Entity + ?Sized>: Entity {
-    fn parent(&self) -> &T;
+    fn parent(&self) -> Option<&T>;
 }
 
 pub trait Member: Entity {
@@ -182,8 +182,8 @@ macro_rules! implement_Container_for {
 macro_rules! implement_Contained_for {
     ($type:ty, $container_type:ty) => {
         impl Contained<$container_type> for $type {
-            fn parent(&self) -> &$container_type {
-                self.parent.borrow()
+            fn parent(&self) -> Option<&$container_type> {
+                Some(self.parent.borrow())
             }
         }
     };
