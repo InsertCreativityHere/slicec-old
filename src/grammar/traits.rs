@@ -25,11 +25,21 @@ pub trait NamedSymbol: ScopedSymbol {
     fn raw_identifier(&self) -> &Identifier;
 
     fn module_scoped_identifier(&self) -> String {
-        self.module_scope().to_owned() + "::" + self.identifier()
+        let module_scope = self.module_scope().to_owned();
+        if module_scope.is_empty() {
+            self.identifier().to_owned()
+        } else {
+            module_scope + "::" + self.identifier()
+        }
     }
 
     fn parser_scoped_identifier(&self) -> String {
-        self.parser_scope().to_owned() + "::" + self.identifier()
+        let parser_scope = self.parser_scope().to_owned();
+        if parser_scope.is_empty() {
+            self.identifier().to_owned()
+        } else {
+            parser_scope + "::" + self.identifier()
+        }
     }
 }
 
