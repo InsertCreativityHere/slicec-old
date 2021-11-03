@@ -114,6 +114,7 @@ impl SliceParser {
             [exception_def(exception_def)] => Definition::Exception(OwnedPtr::new(exception_def)),
             [interface_def(interface_def)] => Definition::Interface(OwnedPtr::new(interface_def)),
             [enum_def(enum_def)]           => Definition::Enum(OwnedPtr::new(enum_def)),
+            [type_alias(type_alias)]       => Definition::TypeAlias(OwnedPtr::new(type_alias)),
         ))
     }
 
@@ -419,6 +420,20 @@ impl SliceParser {
                     identifier,
                     data_type,
                     None,
+                    is_streamed,
+                    true,
+                    scope,
+                    Vec::new(),
+                    None,
+                    location,
+                ))]
+            },
+            [stream_modifier(is_streamed), tag(tag), typeref(data_type)] => {
+                let identifier = Identifier { value: "".to_owned(), location: location.clone() };
+                vec![OwnedPtr::new(Parameter::new(
+                    identifier,
+                    data_type,
+                    Some(tag),
                     is_streamed,
                     true,
                     scope,
