@@ -42,13 +42,24 @@ impl<'ast> TypePatcher<'ast> {
         }
 
         // Lookup the type in the AST's lookup tables, and if it exists, patch it in.
-        let lookup = Ast::lookup_type(self.lookup_table, &type_ref.type_string, &type_ref.scope);
-        if let Some(definition) = lookup {
-            type_ref.definition = definition.clone();
-        } else {
-            // The type hasn't been defined in any accessible scope.
-            // TODO report an error here!
+        let mut lookup = Ast::lookup_type(self.lookup_table, &type_ref.type_string, &type_ref.scope);
+        while let Some(definition) = lookup {
+            // If the type is an alias, clone the alias' attributes to the type_ref being patched.
+            // Then unwrap the alias, and continue the loop on it's underlying definition.
+            // TODO this entire process is not great: recursive aliases will loop forever!!!
+            // This also violates rust's borrowing rules for self-referential types!
+            if let Elements::TypeAlias(type_alias) = definition.borrow().concrete_element() {
+                let alias_ref = &type_alias.underlying;
+                type_ref.attributes.extend_from_slice(alias_ref.attributes());
+                lookup = Ast::lookup_type(self.lookup_table, &alias_ref.type_string, &alias_ref.scope);
+            } else {
+                type_ref.definition = definition.clone();
+                return;
+            }
         }
+
+        // Reaching this code means that the type lookup failed.
+        // TODO report an error here!
     }
 
     fn resolve_typed_definition<T: Element + 'static>(&self, type_ref: &mut TypeRef<T>) {
@@ -58,19 +69,30 @@ impl<'ast> TypePatcher<'ast> {
         }
 
         // Lookup the type in the AST's lookup tables, and if it exists, try to patch it in.
-        let lookup = Ast::lookup_type(self.lookup_table, &type_ref.type_string, &type_ref.scope);
-        if let Some(definition) = lookup {
-            // Make sure the definition's type is the correct type for the reference.
-            if let Ok(converted) = definition.clone().downcast::<T>() {
-                type_ref.definition = converted;
+        let mut lookup = Ast::lookup_type(self.lookup_table, &type_ref.type_string, &type_ref.scope);
+        while let Some(definition) = lookup {
+            // If the type is an alias, clone the alias' attributes to the type_ref being patched.
+            // Then unwrap the alias, and continue the loop on it's underlying definition.
+            // TODO this entire process is not great: recursive aliases will loop forever!!!
+            // This also violates rust's borrowing rules for self-referential types!
+            if let Elements::TypeAlias(type_alias) = definition.borrow().concrete_element() {
+                let alias_ref = &type_alias.underlying;
+                type_ref.attributes.extend_from_slice(alias_ref.attributes());
+                lookup = Ast::lookup_type(self.lookup_table, &alias_ref.type_string, &alias_ref.scope);
             } else {
-                // The definition exists, but is the incorrect type.
-                // TODO throw an error here.
+                // Make sure the definition's type is the correct type for the reference.
+                if let Ok(converted) = definition.clone().downcast::<T>() {
+                    type_ref.definition = converted;
+                } else {
+                    // The definition exists, but is the incorrect type.
+                    // TODO throw an error here.
+                }
+                return;
             }
-        } else {
-            // The type hasn't been defined in any accessible scope.
-            // TODO report an error here!
         }
+
+        // Reaching this code means that the type lookup failed.
+        // TODO report an error here!
     }
 }
 

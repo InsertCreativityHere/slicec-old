@@ -5,6 +5,12 @@ use super::traits::*;
 use super::util::TagFormat;
 use crate::ptr_util::OwnedPtr;
 
+// TODO in hindsight, most of this is useless.
+// We should drop all the pass-through methods, these are only ever going to be used for type-matching.
+// No one in their right mind will keep this wrapper around for actual use.
+// Without passthrough methods, I think we can eliminate the 'Types' wrapper all together and just
+// use Elements. Also, it will be so simple, we can likely drop the macros entirely.
+
 macro_rules! generate_definition_wrapper {
     ($($variant:ident),*) => {
         #[derive(Debug)]
@@ -280,7 +286,7 @@ generate_elements_wrapper!(
 );
 
 generate_types_wrapper!(
-    Struct, Class, Interface, Enum, TypeAlias, Sequence, Dictionary, Primitive
+    Struct, Class, Interface, Enum, Sequence, Dictionary, Primitive
 );
 
 generate_typerefs_wrapper!(
@@ -297,7 +303,7 @@ implement_as_elements!(Operation);
 implement_as_elements!(Parameter);
 implement_as_types!(Enum);
 implement_as_elements!(Enumerator);
-implement_as_types!(TypeAlias);
+implement_as_elements!(TypeAlias); //TODO rethink type-aliases.
 implement_as_types!(Sequence);
 implement_as_types!(Dictionary);
 implement_as_types!(Primitive);

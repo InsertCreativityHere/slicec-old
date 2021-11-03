@@ -590,25 +590,14 @@ impl SliceParser {
         ))
     }
 
-    fn identifier(input: PestNode) -> PestResult<Identifier> {
-        Ok(Identifier {
-            value: input.as_str().to_owned(),
-            location: from_span(&input),
-        })
-    }
-
-    fn scoped_identifier(input: PestNode) -> PestResult<Identifier> {
-        Ok(Identifier {
-            value: input.as_str().to_owned(),
-            location: from_span(&input),
-        })
-    }
-
-    fn global_identifier(input: PestNode) -> PestResult<Identifier> {
-        Ok(Identifier {
-            value: input.as_str().to_owned(),
-            location: from_span(&input),
-        })
+    fn type_alias(input: PestNode) -> PestResult<TypeAlias> {
+        let location = from_span(&input);
+        Ok(match_nodes!(input.children();
+            [prelude(prelude), _, identifier(identifier), typeref(type_ref)] => {
+                let (attributes, comment) = prelude;
+                TypeAlias::new(identifier, type_ref, attributes, comment, location)
+            },
+        ))
     }
 
     fn typeref(input: PestNode) -> PestResult<TypeRef> {
@@ -676,6 +665,27 @@ impl SliceParser {
     fn primitive(input: PestNode) -> PestResult<WeakPtr<Primitive>> {
         // Look the primitive up in the AST's primitive cache.
         Ok(input.user_data().borrow().ast.lookup_primitive(input.as_str()).downgrade())
+    }
+
+    fn identifier(input: PestNode) -> PestResult<Identifier> {
+        Ok(Identifier {
+            value: input.as_str().to_owned(),
+            location: from_span(&input),
+        })
+    }
+
+    fn scoped_identifier(input: PestNode) -> PestResult<Identifier> {
+        Ok(Identifier {
+            value: input.as_str().to_owned(),
+            location: from_span(&input),
+        })
+    }
+
+    fn global_identifier(input: PestNode) -> PestResult<Identifier> {
+        Ok(Identifier {
+            value: input.as_str().to_owned(),
+            location: from_span(&input),
+        })
     }
 
     fn prelude(input: PestNode) -> PestResult<(Vec<Attribute>, Option<DocComment>)> {
@@ -846,6 +856,10 @@ impl SliceParser {
     }
 
     fn enum_kw(input: PestNode) -> PestResult<()> {
+        Ok(())
+    }
+
+    fn type_alias_kw(input: PestNode) -> PestResult<()> {
         Ok(())
     }
 

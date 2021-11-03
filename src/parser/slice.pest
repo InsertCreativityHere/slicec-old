@@ -41,9 +41,7 @@ enumerator = !{ prelude ~ identifier ~ ( "=" ~ integer )? }
 
 inheritance_list = !{ ( typeref ~ "," ~ inheritance_list ) | ( typeref ~ ","? ) }
 
-identifier = @{ ASCII_ALPHA ~ ( "_" | ASCII_ALPHANUMERIC )* }
-global_identifier = @{ ( "::" ~ identifier )+ }
-scoped_identifier = @{ identifier ~ ( "::" ~ identifier )* }
+type_alias = ${ prelude ~ ws* ~ type_alias_kw ~ ws+ ~ identifier ~ ws* ~ "=" ~ ws* ~ typeref }
 
 typeref = ${ local_attributes ~ ws* ~ (primitive | sequence | dictionary | global_identifier | scoped_identifier) ~ (ws* ~ "?")? }
 
@@ -67,6 +65,10 @@ primitive = {
     double_kw   |
     string_kw
 }
+
+identifier = @{ ASCII_ALPHA ~ ( "_" | ASCII_ALPHANUMERIC )* }
+global_identifier = @{ ( "::" ~ identifier )+ }
+scoped_identifier = @{ identifier ~ ( "::" ~ identifier )* }
 
 prelude = !{ local_attributes ~ doc_comment ~ local_attributes }
 
@@ -106,6 +108,7 @@ class_kw = { "class" }
 exception_kw = { "exception" }
 interface_kw = { "interface" }
 enum_kw = { "enum" }
+type_alias_kw = { "typealias" }
 
 sequence_kw = { "sequence" }
 dictionary_kw = { "dictionary" }

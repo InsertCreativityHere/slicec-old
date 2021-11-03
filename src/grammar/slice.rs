@@ -691,6 +691,7 @@ pub struct TypeAlias {
     pub identifier: Identifier,
     pub underlying: TypeRef,
     pub parent: WeakPtr<Module>,
+    pub attributes: Vec<Attribute>,
     pub comment: Option<DocComment>,
     pub location: Location,
 }
@@ -699,11 +700,12 @@ impl TypeAlias {
     pub(crate) fn new(
         identifier: Identifier,
         underlying: TypeRef,
+        attributes: Vec<Attribute>,
         comment: Option<DocComment>,
         location: Location,
     ) -> Self {
         let parent = WeakPtr::create_uninitialized();
-        TypeAlias { identifier, underlying, parent, comment, location }
+        TypeAlias { identifier, underlying, attributes, parent, comment, location }
     }
 }
 
@@ -725,17 +727,17 @@ impl ScopedSymbol for TypeAlias {
     }
 }
 
-impl Attributable for TypeAlias {
-    fn attributes(&self) -> &Vec<Attribute> {
-        self.underlying.attributes()
+impl Entity for TypeAlias {}
+
+impl AsTypes for TypeAlias {
+    fn concrete_type(&self) -> Types {
+        self.underlying.concrete_type()
     }
 
-    fn get_raw_attribute(&self, directive: &str, recurse: bool) -> Option<&Attribute> {
-        self.underlying.get_raw_attribute(directive, recurse)
+    fn concrete_type_mut(&mut self) -> TypesMut {
+        self.underlying.concrete_type_mut()
     }
 }
-
-impl Entity for TypeAlias {}
 
 impl Type for TypeAlias {
     fn is_fixed_size(&self) -> bool {
@@ -758,6 +760,7 @@ impl Type for TypeAlias {
 implement_Element_for!(TypeAlias, "type alias");
 implement_Symbol_for!(TypeAlias);
 implement_Named_Symbol_for!(TypeAlias);
+implement_Attributable_for!(TypeAlias);
 implement_Commentable_for!(TypeAlias);
 implement_Contained_for!(TypeAlias, Module);
 
