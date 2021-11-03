@@ -109,7 +109,7 @@ impl<T: ?Sized + 'static> WeakPtr<T> {
 
 impl<T: ?Sized> WeakPtr<T> {
     pub fn is_initialized(&self) -> bool {
-        self.data.is_none()
+        self.data.is_some()
     }
 
     // This isn't marked as unsafe because it's assumed all WeakPtr live inside the AST, alongside
