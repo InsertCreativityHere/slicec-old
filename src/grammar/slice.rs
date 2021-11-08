@@ -99,7 +99,7 @@ impl Struct {
 
 impl Type for Struct {
     fn is_fixed_size(&self) -> bool {
-        // A struct is fixed size if and only if all it's members are fixed size.
+        // A struct is fixed size if and only if all its members are fixed size.
         self.members().iter()
             .all(|member| member.data_type.is_fixed_size())
     }
@@ -172,7 +172,7 @@ impl Class {
         let mut members = self.members();
         // Recursively add inherited data members from super-classes.
         if let Some(base_class) = self.base_class() {
-            members.extend(base_class.members());
+            members.extend(base_class.all_members());
         }
         members
     }
@@ -246,7 +246,7 @@ impl Exception {
         let mut members = self.members();
         // Recursively add inherited data members from super-exceptions.
         if let Some(base_class) = self.base_exception() {
-            members.extend(base_class.members());
+            members.extend(base_class.all_members());
         }
         members
     }
@@ -366,7 +366,7 @@ impl Interface {
 
     pub fn all_base_interfaces(&self) -> Vec<&Interface> {
         let mut bases = self.bases.iter()
-            .flat_map(|type_ref| type_ref.definition().base_interfaces())
+            .flat_map(|type_ref| type_ref.definition().all_base_interfaces())
             .collect::<Vec<&Interface>>();
 
         // Dedup only works on sorted collections, so we have to sort the bases first.
@@ -607,9 +607,9 @@ impl Enum {
     }
 
     pub fn underlying_type(&self) -> &Primitive {
-        // If the enum has an underlying type, return a reference to it's definition.
+        // If the enum has an underlying type, return a reference to its definition.
         // Otherwise, enums have a backing type of `int` by default. Since `int` is a type
-        // defined by the compiler, we fetch it's definition directly from the global AST.
+        // defined by the compiler, we fetch its definition directly from the global AST.
         self.underlying.as_ref().map_or(
             crate::borrow_ast().lookup_primitive("int").borrow(),
             |data_type| data_type.definition(),
@@ -622,12 +622,11 @@ impl Enum {
         );
 
         // There might not be a minimum value if the enum is empty.
-        if let Some(min) = values.clone().min() {
-            // The existence of a `min` guarantees a `max` exists too, so it's safe to unwrap it.
-            Some((min, values.max().unwrap()))
-        } else {
-            None
-        }
+        values.clone().min().map(|min| (
+            min,
+            values.max().unwrap() // A 'min' guarantees a 'max' exists too, so unwrap is safe.
+
+        ))
     }
 }
 
@@ -709,7 +708,7 @@ impl TypeAlias {
     }
 }
 
-// The `implement_trait_for` macros expect structs to store all it's data as fields on itself,
+// The `implement_trait_for` macros expect structs to store all its data as fields on itself,
 // but TypeAliases store data in their underlying `TypeRef`, so we need to manually implement
 // some traits to forward to the underlying `TypeRef`, instead of being able to use macros.
 
@@ -1003,7 +1002,7 @@ impl Type for Primitive {
     }
 
     fn uses_classes(&self) -> bool {
-        !matches!(self, Self::AnyClass)
+        matches!(self, Self::AnyClass)
     }
 
     fn tag_format(&self) -> TagFormat {

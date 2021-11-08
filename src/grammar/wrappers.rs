@@ -217,7 +217,7 @@ macro_rules! generate_typerefs_wrapper {
             pub fn concrete_type_ref(&self) -> TypeRefs {
                 match self.concrete_element() {
                     $(Elements::$variant(_) => {
-                        // Clone the TypeRef, but downcast it's pointer to the concrete type.
+                        // Clone the TypeRef, but downcast its pointer to the concrete type.
                         // TODO cloning this is expensive. There may be a better way to implement.
                         let downcasted = TypeRef {
                             type_string: self.type_string.clone(),
