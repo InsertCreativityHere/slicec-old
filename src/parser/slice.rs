@@ -226,12 +226,8 @@ impl SliceParser {
 
                 push_scope(&input, &identifier.value, false);
 
-                if let TypeRefs::Class(base) = bases[0].concrete_type_ref() {
-                    (identifier, compact_id, location, Some(base))
-                } else {
-                    // TODO Report an error
-                    (identifier, compact_id, location, None)
-                }
+                let base = bases.into_iter().next().unwrap().downcast::<Class>().unwrap();
+                (identifier, compact_id, location, Some(base))
             }
         ))
     }
@@ -271,12 +267,8 @@ impl SliceParser {
 
                 push_scope(&input, &identifier.value, false);
 
-                if let TypeRefs::Exception(base) = bases[0].concrete_type_ref() {
-                    (identifier, location, Some(base))
-                } else {
-                    // TODO Report an error
-                    (identifier, location, None)
-                }
+                let base = bases.into_iter().next().unwrap().downcast::<Exception>().unwrap();
+                (identifier, location, Some(base))
             }
         ))
     }
@@ -307,11 +299,7 @@ impl SliceParser {
             [_, identifier(identifier), _, inheritance_list(bases)] => {
                 let mut bases_vector = Vec::new();
                 for base in bases {
-                    if let TypeRefs::Interface(type_ref) = base.concrete_type_ref() {
-                        bases_vector.push(type_ref);
-                    } else {
-                        // TODO report an error! Interfaces must inherit from interfaces
-                    }
+                    bases_vector.push(base.downcast::<Interface>().unwrap());
                 }
                 push_scope(&input, &identifier.value, false);
                 (identifier, location, bases_vector)
@@ -353,8 +341,8 @@ impl SliceParser {
                 (unchecked, identifier, location, None)
             },
             [unchecked_modifier(unchecked), _, identifier(identifier), _, typeref(type_ref)] => {
-                let underlying = match type_ref.concrete_type_ref() {
-                    TypeRefs::Primitive(underlying) => underlying,
+                let underlying = match type_ref.downcast::<Primitive>() {
+                    Ok(primtive_def) => primtive_def,
                     _ => panic!("MUST BE A PRIMITIVE TODO"),
                 };
                 push_scope(&input, &identifier.value, false);
