@@ -4,7 +4,7 @@
 
 main = { SOI ~ file_encoding? ~ file_attributes ~ (file_level_module | module_def*) ~ EOI }
 
-file_encoding = !{ encoding_kw ~ "=" ~ encoding ~ ";" }
+file_encoding = !{ encoding_kw ~ "=" ~ encoding_version ~ ";" }
 encoding_version = {
     "1.1" |
     "2.0"
