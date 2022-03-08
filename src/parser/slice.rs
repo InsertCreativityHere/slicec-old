@@ -58,7 +58,7 @@ impl SliceParser {
         let user_data = RefCell::new(ParserData {
             ast: &mut ast,
             current_file: "dummy".to_owned(),
-            current_encoding: SliceEncoding::Slice20,
+            current_encoding: SliceEncoding::Slice2,
             current_enum_value: 0,
             current_scope: Scope::default(),
         });
@@ -97,7 +97,7 @@ impl SliceParser {
         let user_data = RefCell::new(ParserData {
             ast,
             current_file: file.to_owned(),
-            current_encoding: SliceEncoding::Slice20,
+            current_encoding: SliceEncoding::Slice2,
             current_enum_value: 0,
             current_scope: Scope::default(),
         });
@@ -159,7 +159,7 @@ impl SliceParser {
     fn encoding_version(input: PestNode) -> PestResult<SliceEncoding> {
         match input.as_str() {
             "1.1" => Ok(SliceEncoding::Slice11),
-            "2.0" => Ok(SliceEncoding::Slice20),
+            "2" => Ok(SliceEncoding::Slice2),
             _ => Err(PestError::new_from_span(
                 PestErrorVariant::CustomError {
                     message: format!("Unknown slice encoding version: {}", input.as_str()),
