@@ -1,7 +1,52 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 // TODO this entire file needs to be looked over again.
 
-use crate::grammar::{Element, Member, Primitive, TypeRef, Types};
+use crate::grammar::{Element, Member, Primitive, SliceEncoding, TypeRef, Types};
+use std::collections::HashSet;
+use std::iter::FromIterator;
+
+#[derive(Clone, Debug)]
+pub struct SupportedEncodings(HashSet<SliceEncoding>);
+
+impl SupportedEncodings {
+    pub fn new(encodings: &[SliceEncoding]) -> Self {
+        SupportedEncodings(
+            HashSet::from_iter(encodings.iter().cloned())
+        )
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &SliceEncoding> {
+        self.0.iter()
+    }
+
+    pub fn supports_11(&self) -> bool {
+        self.0.contains(&SliceEncoding::Slice11)
+    }
+
+    pub fn supports_2(&self) -> bool {
+        self.0.contains(&SliceEncoding::Slice2)
+    }
+
+    pub fn supports_multiple_encodings(&self) -> bool {
+        self.0.len() > 1
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub(crate) fn disable_11(&mut self) {
+        self.0.remove(&SliceEncoding::Slice11);
+    }
+
+    pub(crate) fn disable_2(&mut self) {
+        self.0.remove(&SliceEncoding::Slice2);
+    }
+
+    pub(crate) fn intersect(&mut self, other: SupportedEncodings) {
+        self.0.retain(|e| other.0.contains(e));
+    }
+}
 
 /// The context that a type is being used in while generating code. This is used primarily by the
 /// `type_to_string` methods in each of the language mapping's code generators.

@@ -1,6 +1,6 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
-use crate::grammar::{Attribute, Module, FileEncoding};
+use crate::grammar::{Attribute, Module, FileEncoding, SliceEncoding};
 use crate::ptr_util::WeakPtr;
 
 #[derive(Clone, Debug)]
@@ -70,6 +70,14 @@ impl SliceFile {
             encoding,
             is_source,
             line_positions,
+        }
+    }
+
+    pub fn file_encoding(&self) -> SliceEncoding {
+        if let Some(file_encoding) = &self.encoding {
+            file_encoding.version.clone()
+        } else {
+            SliceEncoding::default()
         }
     }
 
