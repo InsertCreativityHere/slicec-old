@@ -831,7 +831,6 @@ impl<'a> SliceParser<'a> {
         ))
     }
 
-    // TODO: this is currently unused
     fn global_identifier(input: PestNode) -> PestResult<Identifier> {
         Ok(Identifier::new(
             input.as_str().to_owned(),
