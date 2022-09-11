@@ -7,8 +7,10 @@ use crate::grammar::*;
 use crate::parse_result::{ParsedData, ParserResult};
 use crate::utils::ptr_util::{OwnedPtr, WeakPtr};
 use crate::utils::string_util::prefix_with_article;
+
+use std::convert::{TryFrom, TryInto};
+
 use convert_case::{Case, Casing};
-use std::convert::TryInto;
 
 pub unsafe fn patch_ast(mut parsed_data: ParsedData) -> ParserResult {
     let mut patcher = TypeRefPatcher {
@@ -181,6 +183,10 @@ impl TypeRefPatcher<'_> {
         let lookup_result: Result<Patch<T>, String> = ast
             .find_node_with_scope(type_string, type_ref.module_scope())
             .and_then(|node| {
+                // We perform the deprecation check here instead of the validators since we need to check type-aliases
+                // which are resolved and erased after type-ref patching is completed.
+                self.check_for_deprecated_type(type_ref, node);
+
                 if let Node::TypeAlias(type_alias) = node {
                     self.resolve_type_alias(type_alias.borrow(), ast)
                 } else {
@@ -259,6 +265,32 @@ impl TypeRefPatcher<'_> {
                 self.diagnostic_reporter.report(diagnostic);
 
                 return Err("Failed to resolve type due to a cycle in its definition".to_owned());
+            }
+        }
+    }
+
+    fn check_for_deprecated_type<T: Element + ?Sized>(&mut self, type_ref: &TypeRef<T>, node: &Node) {
+        // Check if the type is an entity, and if so, check if it has the `deprecated` attribute.
+        // Only entities can be deprecated, so this check is sufficient.
+        if let Ok(entity) = <&dyn Entity>::try_from(node) {
+            if let Some(args) = entity.get_deprecated_attribute(true) {
+                // Compute the warning message. The `deprecated` attribute can have either 0 or 1 arguments, so we
+                // only check the first argument. If it's present, we attach it to the warning message we emit.
+                let mut message = format!("{} is deprecated", entity.identifier());
+                if let Some(reason) = args.first() {
+                    message = message + ": " + reason;
+                }
+
+                self.diagnostic_reporter.report(Diagnostic::new_with_notes(
+                    WarningKind::DeprecatedTypeUse(message),
+                    Some(type_ref.span()),
+                    vec![
+                        Note::new(
+                            format!("{} was deprecated here:", entity.identifier()),
+                            Some(entity.span()),
+                        )
+                    ],
+                ));
             }
         }
     }

@@ -36,6 +36,13 @@ pub enum WarningKind {
     ///
     /// * `tag` - The doc comment tag
     InvalidDocCommentTag(String),
+
+    /// The user used a deprecated type.
+    ///
+    /// # Fields
+    ///
+    /// * `message` - The message to display to the user.
+    DeprecatedTypeUse(String),
 }
 
 implement_from_for_error_sub_kind!(WarningKind, DiagnosticKind::Warning);
@@ -70,5 +77,11 @@ implement_error_functions!(
         1003,
         format!("doc comment tag `{tag}` is invalid"),
         tag
+    ),
+    (
+        WarningKind::DeprecatedTypeUse,
+        1004,
+        message,
+        message
     )
 );
