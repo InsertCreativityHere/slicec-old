@@ -20,13 +20,11 @@ use std::collections::HashMap;
 /// 2. Compute and store the Slice encodings that each element can be used with.
 ///
 /// This function fails fast, so if any phase of patching fails, we skip any remaining phases.
-pub(crate) fn patch_ast(mut compilation_data: CompilationData) -> CompilationResult {
-    unsafe {
-        compilation_data = patchers::type_ref_patcher::patch_ast(compilation_data)?;
-        compilation_data = patchers::encoding_patcher::patch_ast(compilation_data)?;
+pub(crate) unsafe fn patch_ast(mut compilation_data: CompilationData) -> CompilationResult {
+    compilation_data = patchers::type_ref_patcher::patch_ast(compilation_data)?;
+    compilation_data = patchers::encoding_patcher::patch_ast(compilation_data)?;
 
-        compilation_data.into()
-    }
+    compilation_data.into()
 }
 
 /// The AST (Abstract Syntax Tree) is the heart of the compiler, containing all the slice elements defined and used by

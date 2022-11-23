@@ -30,7 +30,7 @@ fn parse_slice_file(
     file: &mut SliceFile,
     ast: &mut Ast,
     diagnostic_reporter: &mut DiagnosticReporter,
-    mut symbols: HashSet<String>
+    mut symbols: HashSet<String>,
 ) {
     // Preprocess the file's raw text.
     let mut preprocessor = Preprocessor::new(&file.filename, &mut symbols, diagnostic_reporter);
