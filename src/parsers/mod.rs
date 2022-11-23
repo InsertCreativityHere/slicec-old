@@ -47,5 +47,7 @@ fn parse_slice_file(
         .collect::<Vec<_>>();
 
     // Store the parsed data in the `SliceFile` it was parsed from.
-    file.set_contents(encoding, attributes, module_ptrs);
+    file.encoding = encoding;
+    file.attributes = attributes;
+    file.contents = module_ptrs;
 }

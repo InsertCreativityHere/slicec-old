@@ -104,18 +104,6 @@ impl SliceFile {
         }
     }
 
-    /// TODO
-    pub(crate) fn set_contents(
-        &mut self,
-        encoding: Option<FileEncoding>,
-        attributes: Vec<Attribute>,
-        modules: Vec<WeakPtr<Module>>
-    ) {
-        self.encoding = encoding;
-        self.attributes = attributes;
-        self.contents = modules;
-    }
-
     /// Returns the Slice encoding used by this file.
     ///
     /// If no encoding was explicitly declared, it returns the default encoding.
