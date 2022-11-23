@@ -57,14 +57,8 @@ pub struct SliceFile {
 }
 
 impl SliceFile {
-    pub fn new(
-        relative_path: String,
-        raw_text: String,
-        contents: Vec<WeakPtr<Module>>,
-        attributes: Vec<Attribute>,
-        encoding: Option<FileEncoding>,
-        is_source: bool,
-    ) -> SliceFile {
+    /// TODO
+    pub fn new_unparsed(relative_path: String, raw_text: String, is_source: bool) -> Self {
         // Store the starting position of each line the file.
         // Slice supports '\n', '\r', and '\r\n' as newlines.
         let mut line_positions = vec![0]; // The first line always starts at index 0.
@@ -102,12 +96,24 @@ impl SliceFile {
             filename,
             relative_path,
             raw_text,
-            contents,
-            attributes,
-            encoding,
+            contents: Vec::new(),
+            attributes: Vec::new(),
+            encoding: None,
             is_source,
             line_positions,
         }
+    }
+
+    /// TODO
+    pub(crate) fn set_contents(
+        &mut self,
+        encoding: Option<FileEncoding>,
+        attributes: Vec<Attribute>,
+        modules: Vec<WeakPtr<Module>>
+    ) {
+        self.encoding = encoding;
+        self.attributes = attributes;
+        self.contents = modules;
     }
 
     /// Returns the Slice encoding used by this file.

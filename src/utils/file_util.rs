@@ -1,9 +1,45 @@
 // Copyright (c) ZeroC, Inc. All rights reserved.
 
+use crate::command_line::SliceOptions;
+use crate::diagnostics::{DiagnosticReporter, Error, ErrorKind};
+use crate::slice_file::SliceFile;
+
 use std::path::PathBuf;
 use std::{fs, io};
 
-pub fn find_slice_files(paths: &[String]) -> Vec<String> {
+pub fn get_files_from_command_line(
+    options: &SliceOptions,
+    diagnostic_reporter: &mut DiagnosticReporter,
+) -> Vec<SliceFile> {
+    // TODO simplify and fix this by keeping a `HashMap<path, is_source>` instead of 2 vecs!
+    // This means we can drop the `retain` and `dedup` since those are for free with a HashMap.
+    // See: www.github.com/zeroc-ice/icerpc/issues/298
+
+    let source_files = find_slice_files(&options.sources);
+    let mut reference_files = find_slice_files(&options.references);
+    // Remove duplicate reference files, or files that are already being parsed as source.
+    // This ensures that a file isn't parsed twice, which would cause redefinition errors.
+    reference_files.retain(|file| !source_files.contains(file));
+    reference_files.sort();
+    reference_files.dedup();
+
+    let mut files = Vec::new();
+    for path in source_files {
+        match fs::read_to_string(&path) {
+            Ok(raw_text) => files.push(SliceFile::new_unparsed(path, raw_text, true)),
+            Err(err) => diagnostic_reporter.report_error(Error::new(ErrorKind::IO(err), None)),
+        }
+    }
+    for path in reference_files {
+        match fs::read_to_string(&path) {
+            Ok(raw_text) => files.push(SliceFile::new_unparsed(path, raw_text, false)),
+            Err(err) => diagnostic_reporter.report_error(Error::new(ErrorKind::IO(err), None)),
+        }
+    }
+    files
+}
+
+fn find_slice_files(paths: &[String]) -> Vec<String> {
     let mut slice_paths = Vec::new();
     for path in paths {
         match find_slice_files_in_path(PathBuf::from(path)) {
