@@ -19,7 +19,23 @@ fn construct_error_from(parse_error: ParseError, file_name: &str) -> diagnostics
         // A custom error we emitted; See `tokens::ErrorKind`.
         ParseError::User {
             error: (start, parse_error_kind, end),
-        } => diagnostics::Error::from(parse_error_kind).set_span(&Span::new(start, end, file_name)),
+        } => {
+            let error_kind = match parse_error_kind {
+                tokens::ErrorKind::MissingDirective => diagnostics::ErrorKind::Syntax {
+                    message: "missing preprocessor directive".to_owned(),
+                },
+                tokens::ErrorKind::UnknownDirective { keyword } => diagnostics::ErrorKind::Syntax {
+                    message: format!("unknown preprocessor directive: '{keyword}'"),
+                },
+                tokens::ErrorKind::UnknownSymbol { symbol, suggestion } => diagnostics::ErrorKind::Syntax {
+                    message: match suggestion {
+                        Some(s) => format!("unknown symbol '{symbol}', try using '{s}' instead"),
+                        None => format!("unknown symbol '{symbol}'"),
+                    },
+                },
+            };
+            diagnostics::Error::new(error_kind).set_span(&Span::new(start, end, file_name))
+        }
 
         // The parser encountered a token that didn't fit any grammar rule.
         ParseError::UnrecognizedToken {
