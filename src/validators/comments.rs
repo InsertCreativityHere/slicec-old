@@ -18,8 +18,8 @@ fn non_empty_return_comment(operation: &Operation, diagnostic_reporter: &mut Dia
     if let Some(comment) = operation.comment() {
         // Return doc comment exists but operation has no return members.
         // `DocComment.return_members` contains a list of descriptions of the return members.
-        // example: @return A description of the return value.
-        if comment.returns.is_some() && operation.return_members().is_empty() {
+        // example: @returns: A description of the return value.
+        if !comment.returns.is_empty() && operation.return_members().is_empty() {
             Warning::new(WarningKind::ExtraReturnValueInDocComment)
                 .set_span(comment.span())
                 .report(diagnostic_reporter, Some(operation));
@@ -34,10 +34,10 @@ fn missing_parameter_comment(operation: &Operation, diagnostic_reporter: &mut Di
                 .parameters()
                 .iter()
                 .map(|p| p.identifier.value.clone())
-                .any(|identifier| identifier == param.0)
+                .any(|identifier| identifier == param.identifier.value.clone())
             {
                 Warning::new(WarningKind::ExtraParameterInDocComment {
-                    identifier: param.0.clone(),
+                    identifier: param.identifier.value.clone(),
                 })
                 .set_span(comment.span())
                 .report(diagnostic_reporter, Some(operation));
@@ -63,26 +63,21 @@ fn only_operations_can_throw(entity: &dyn Entity, diagnostic_reporter: &mut Diag
 
 fn linked_identifiers_exist(entity: &dyn Entity, ast: &Ast, diagnostic_reporter: &mut DiagnosticReporter) {
     if let Some(comment) = entity.comment() {
-        for (tag_type, value) in find_inline_tags(&comment.overview) {
-            match tag_type {
-                "@link" => {
+        if let Some(overview) = comment.overview.as_ref() {
+            for component in &overview.message {
+                if let MessageComponent::Link(link_tag) = component {
+                    // Todo: We should issue different errors if the thing doesn't exist vs isn't the right type.
                     if ast
-                        .find_element_with_scope::<dyn Entity>(value, entity.module_scope())
+                        .find_element_with_scope::<dyn Entity>(&link_tag.link.value, entity.module_scope())
                         .is_err()
                     {
                         Warning::new(WarningKind::InvalidDocCommentLinkIdentifier {
-                            identifier: value.to_owned(),
+                            identifier: link_tag.link.value.to_owned(),
                         })
                         .set_span(comment.span())
                         .report(diagnostic_reporter, Some(entity));
                     }
                 }
-                other if other.starts_with('@') => {
-                    Warning::new(WarningKind::InvalidDocCommentTag { tag: other.to_owned() })
-                        .set_span(comment.span())
-                        .report(diagnostic_reporter, Some(entity));
-                }
-                _ => {}
             }
         }
     }

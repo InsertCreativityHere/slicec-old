@@ -3,7 +3,7 @@
 use super::super::common::ParserResult;
 use super::lexer::Lexer;
 use crate::diagnostics::DiagnosticReporter;
-use crate::grammar::DocComment;
+use crate::grammar::{Attribute, DocComment};
 use crate::slice_file::Span;
 
 /// Helper macro for generating parsing functions.
@@ -15,7 +15,7 @@ macro_rules! implement_parse_function {
                 .parse(self, Lexer::new(input))
                 .map_err(|parse_error| {
                     let warning = super::construct_warning_from(parse_error, self.file_name);
-                    warning.report(self.reporter, None);
+                    warning.report(self.reporter, Some(&self.attributes));
                 })
         }
     };
@@ -24,12 +24,13 @@ macro_rules! implement_parse_function {
 pub struct CommentParser<'a> {
     pub file_name: &'a str,
     pub(super) reporter: &'a mut DiagnosticReporter,
+    attributes: Vec<&'a Attribute>,
 }
 
 impl<'a> CommentParser<'a> {
     implement_parse_function!(parse_doc_comment, DocCommentParser, DocComment);
 
-    pub fn new(file_name: &'a str, reporter: &'a mut DiagnosticReporter) -> Self {
-        CommentParser { file_name, reporter }
+    pub fn new(file_name: &'a str, reporter: &'a mut DiagnosticReporter, attributes: Vec<&'a Attribute>) -> Self {
+        CommentParser { file_name, reporter, attributes }
     }
 }

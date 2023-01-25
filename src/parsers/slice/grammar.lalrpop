@@ -12,6 +12,7 @@ use crate::utils::ptr_util::{OwnedPtr, WeakPtr};
 grammar<'input, 'a>(parser: &mut Parser<'a>);
 
 extern {
+    // Specify the types that the parser should use for location tracking and error emission.
     type Location = crate::slice_file::Location;
     type Error = crate::parsers::slice::tokens::Error;
 
@@ -342,7 +343,7 @@ CompactId: u32 = {
 }
 
 Prelude: (Option<DocComment>, Vec<Attribute>) = {
-    PreludeImpl => (parse_doc_comment(<>.0), <>.1),
+    PreludeImpl => (parse_doc_comment(parser, <>.0, &<>.1), <>.1),
 }
 
 PreludeImpl: (Vec<(&'input str, Span)>, Vec<Attribute>) = {

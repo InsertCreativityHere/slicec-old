@@ -58,13 +58,13 @@ Main: Option<SourceBlock<'input>> = {
 DefineDirective: () = {
     define_keyword <identifier> directive_end => {
         preprocessor.definitions.insert(<>.to_owned());
-    }
+    },
 }
 
 UndefineDirective: () = {
     undefine_keyword <identifier> directive_end => {
         preprocessor.definitions.remove(<>);
-    }
+    },
 }
 
 IfDirective = if_keyword <Expression> directive_end;
@@ -82,7 +82,7 @@ EndifDirective: () = {
 ConditionalStatement: Option<SourceBlock<'input>> = {
     <if_block: (IfDirective source_block?)> <elif_blocks: (ElifDirective source_block?)*> <else_block: (ElseDirective <source_block?>)?> EndifDirective => {
         evaluate_if_statement(if_block, elif_blocks, else_block)
-    }
+    },
 }
 
 Expression: bool = {

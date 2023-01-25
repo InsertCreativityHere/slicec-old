@@ -9,17 +9,18 @@ use self::parser::CommentParser;
 use self::tokens::{Error, ErrorKind, TokenKind};
 use super::common::ParserResult;
 use crate::diagnostics::{DiagnosticReporter, Warning, WarningKind};
-use crate::grammar::DocComment;
+use crate::grammar::{Attribute, DocComment};
 use crate::slice_file::{Location, Span};
 
 /// Entry point for the doc comment parser.
 /// It converts the raw lines (and spans) of a doc comment into a fully parsed `DocComment` struct.
 pub fn parse_doc_comment(
     raw_comment: Vec<(&str, Span)>,
+    attributes: Vec<&Attribute>,
     file_name: &str,
     diagnostic_reporter: &mut DiagnosticReporter,
 ) -> ParserResult<DocComment> {
-    let mut comment_parser = CommentParser::new(file_name, diagnostic_reporter);
+    let mut comment_parser = CommentParser::new(file_name, diagnostic_reporter, attributes);
     comment_parser.parse_doc_comment(raw_comment)
     // TODO: add leading whitespace stripping here!
 }

@@ -26,7 +26,7 @@ pub struct Lexer<'input> {
     position: usize,
 
     /// The lexer's current [location](crate::slice_file::Location) in the input string.
-    /// Used to tag tokens with their starting and ending locations in the input.
+    /// Used to tag tokens with their starting and ending locations.
     cursor: Location,
 
     /// The current mode of the lexer; controls how the input is tokenized in a context-dependent manner.
@@ -108,24 +108,26 @@ impl<'input> Lexer<'input> {
 
     /// Consumes a single character from the lexer's buffer and returns a token of the specified kind.
     /// This is a convenience function for the common case where a token's lexeme is a single character.
-    fn return_simple_token(&mut self, token: TokenKind<'input>, start: Location) -> LexerResult<'input> {
+    fn return_simple_token(&mut self, token: TokenKind<'input>, start: Location) -> Option<LexerResult<'input>> {
         self.advance_buffer(); // Consume the token from the buffer.
-        Ok((start, token, self.cursor)) // Return it.
+        Some(Ok((start, token, self.cursor))) // Return it.
     }
 
     /// Attempts to read and return a preprocessor directive token from the buffer.
-    /// Returns `Ok(x)` to indicate success (`x` is the next token), and `Err(y)` to indicate an error occurred.
+    /// Returns `None` to indicate it read a token by ignored it (comments, whitespace, etc.),
+    /// `Some(Ok(x))` to indicate success (where `x` is the next token),
+    /// and `Some(Err(y))` to indicate an error occurred during lexing.
     fn lex_next_preprocessor_token(&mut self, c: char) -> Option<LexerResult<'input>> {
         let start_location = self.cursor;
         match c {
-            '(' => Some(self.return_simple_token(TokenKind::LeftParenthesis, start_location)),
-            ')' => Some(self.return_simple_token(TokenKind::RightParenthesis, start_location)),
-            '!' => Some(self.return_simple_token(TokenKind::Not, start_location)),
+            '(' => self.return_simple_token(TokenKind::LeftParenthesis, start_location),
+            ')' => self.return_simple_token(TokenKind::RightParenthesis, start_location),
+            '!' => self.return_simple_token(TokenKind::Not, start_location),
             '&' => {
                 self.advance_buffer(); // Consume the '&' character.
                                        // Ensure the next character is also an '&' (since the whole token should be "&&").
                 if matches!(self.buffer.peek(), Some('&')) {
-                    Some(self.return_simple_token(TokenKind::And, start_location))
+                    self.return_simple_token(TokenKind::And, start_location)
                 } else {
                     let error = ErrorKind::UnknownSymbol {
                         symbol: "&".to_owned(),
@@ -138,7 +140,7 @@ impl<'input> Lexer<'input> {
                 self.advance_buffer(); // Consume the '|' character.
                                        // Ensure the next character is also a '|' (since the whole token should be "||").
                 if matches!(self.buffer.peek(), Some('|')) {
-                    Some(self.return_simple_token(TokenKind::Or, start_location))
+                    self.return_simple_token(TokenKind::Or, start_location)
                 } else {
                     let error = ErrorKind::UnknownSymbol {
                         symbol: "|".to_owned(),
@@ -171,11 +173,21 @@ impl<'input> Lexer<'input> {
                 self.advance_buffer(); // Consume the '/' character.
 
                 match self.buffer.peek() {
+                    // The token is '//', indicating a line comment.
                     Some('/') => {
                         // Consume the rest of the line, ending at either `\n` or `EOF`.
                         self.advance_to_end_of_line();
                         None
                     }
+
+                    // The token is "/*", indicating an illegal block comment.
+                    Some('*') => {
+                        // Consume the rest of the line, ending at either `\n` or `EOF`.
+                        self.advance_to_end_of_line();
+                        Some(Err((start_location, ErrorKind::IllegalBlockComment, self.cursor)))
+                    }
+
+                    // The token is just "/", indicating a syntax error. '/' on its own isn't valid.
                     _ => {
                         let error = ErrorKind::UnknownSymbol {
                             symbol: "/".to_owned(),
@@ -225,7 +237,7 @@ impl<'input> Iterator for Lexer<'input> {
             if self.mode == LexerMode::PreprocessorDirective {
                 if let Some(token) = self.lex_next_preprocessor_token(c) {
                     return Some(token);
-                };
+                }
             } else if c == '\n' {
                 self.advance_buffer();
             } else if c == '#' {

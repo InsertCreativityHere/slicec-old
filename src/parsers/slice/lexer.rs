@@ -403,7 +403,7 @@ where
 
     /// Attempts to lex and return the next token in this lexer's token stream.
     /// Returns `None` to indicate end-of-stream, `Some(Ok(x))` to indicate success (where `x` is the next token),
-    /// and `Some(Err(y))` to indicate an error occurred during lexing.
+    /// and `Some(Err(y))` to indicate that an error occurred during lexing.
     fn next(&mut self) -> Option<Self::Item> {
         // Continue iterating until we return a token, or reach the end of our source blocks.
         loop {

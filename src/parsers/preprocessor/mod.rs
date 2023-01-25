@@ -19,7 +19,26 @@ fn construct_error_from(parse_error: ParseError, file_name: &str) -> diagnostics
         // A custom error we emitted; See `tokens::ErrorKind`.
         ParseError::User {
             error: (start, parse_error_kind, end),
-        } => diagnostics::Error::from(parse_error_kind).set_span(&Span::new(start, end, file_name)),
+        } => {
+            let error_kind = match parse_error_kind {
+                tokens::ErrorKind::MissingDirective => diagnostics::ErrorKind::Syntax {
+                    message: "missing preprocessor directive".to_owned(),
+                },
+                tokens::ErrorKind::UnknownDirective { keyword } => diagnostics::ErrorKind::Syntax {
+                    message: format!("unknown preprocessor directive: '{keyword}'"),
+                },
+                tokens::ErrorKind::UnknownSymbol { symbol, suggestion } => diagnostics::ErrorKind::Syntax {
+                    message: match suggestion {
+                        Some(s) => format!("unknown symbol '{symbol}', try using '{s}' instead"),
+                        None => format!("unknown symbol '{symbol}'"),
+                    },
+                },
+                tokens::ErrorKind::IllegalBlockComment => diagnostics::ErrorKind::Syntax {
+                    message: "block comments cannot start on the same line as a preprocessor directive; try moving this comment to another line, or converting it to a line comment".to_owned(),
+                },
+            };
+            diagnostics::Error::new(error_kind).set_span(&Span::new(start, end, file_name))
+        }
 
         // The parser encountered a token that didn't fit any grammar rule.
         ParseError::UnrecognizedToken {
@@ -27,7 +46,7 @@ fn construct_error_from(parse_error: ParseError, file_name: &str) -> diagnostics
             expected,
         } => {
             let message = format!(
-                "expected one of {}, but found '{token_kind:?}'",
+                "expected one of {}, but found '{token_kind:?}'", // TODO: should use Display like in Slice parser.
                 clean_message(&expected)
             );
             diagnostics::Error::new(diagnostics::ErrorKind::Syntax { message })
@@ -41,15 +60,12 @@ fn construct_error_from(parse_error: ParseError, file_name: &str) -> diagnostics
                 .set_span(&Span::new(location, location, file_name))
         }
 
-        // Only the built-in lexer emits 'InvalidToken' errors. We use our own lexer so this is impossible.
-        ParseError::InvalidToken { .. } => panic!("impossible 'InvalidToken' encountered in preprocessor"),
-
-        // Only rules that explicitly match 'EOF' or only match a finite number of tokens can emit this error.
-        // None of our rules do, so this is impossible (there's no limit to the length of a slice file's contents).
-        ParseError::ExtraToken { .. } => panic!("impossible 'ExtraToken' encountered in preprocessor"),
+        _ => unreachable!("impossible error encounted in preprocessor: {parse_error:?}"),
     }
 }
 
+// TODO: we should convert the LALRpop keywords to human words like we do for the Slice parser.
+// TODO: this is identical to the bottom of parsers/slice/mod.rs, we should roll them into a helper function.
 fn clean_message(expected: &[String]) -> String {
     match expected {
         [first] => first.to_owned(),

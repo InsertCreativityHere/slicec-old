@@ -30,9 +30,12 @@ mod comments {
 
         // Assert
         let interface_def = ast.find_element::<Interface>("tests::MyInterface").unwrap();
-        let interface_doc = interface_def.comment().unwrap();
+        let interface_overview = interface_def.comment().unwrap().overview.as_ref().unwrap();
 
-        assert_eq!(interface_doc.overview, expected);
+        assert_eq!(interface_overview.message.len(), 1);
+
+        let MessageComponent::Text(text) = &interface_overview.message[0] else { panic!() };
+        assert_eq!(text, expected);
     }
 
     #[test]
@@ -43,7 +46,7 @@ mod comments {
 
             interface TestInterface
             {
-                /// @param testParam My test param
+                /// @param testParam: My test param
                 testOp(testParam: string);
             }
         ";
@@ -52,11 +55,19 @@ mod comments {
         let ast = parse_for_ast(slice);
 
         // Assert
-        let expected = vec![("testParam".to_owned(), "My test param".to_owned())];
         let operation = ast.find_element::<Operation>("tests::TestInterface::testOp").unwrap();
-        let op_doc_comment = operation.comment().unwrap();
+        let op_doc_params = &operation.comment().unwrap().params;
 
-        assert_eq!(op_doc_comment.params, expected);
+        assert_eq!(op_doc_params.len(), 1);
+
+        let op_doc_param = &op_doc_params[0];
+        assert_eq!(op_doc_param.identifier.value, "testParam");
+
+        assert_eq!(op_doc_param.message.len(), 2);
+        let MessageComponent::Text(text) = &op_doc_param.message[0] else { panic!() };
+        assert_eq!(text, "My test param");
+        let MessageComponent::Text(text) = &op_doc_param.message[0] else { panic!() };
+        assert_eq!(text, "\n");
     }
 
     #[test]
@@ -67,7 +78,7 @@ mod comments {
 
             interface TestInterface
             {
-                /// @return bool
+                /// @returns bool
                 testOp(testParam: string) -> bool;
             }
         ";
@@ -76,11 +87,19 @@ mod comments {
         let ast = parse_for_ast(slice);
 
         // Assert
-        let expected = Some("bool".to_owned());
         let operation = ast.find_element::<Operation>("tests::TestInterface::testOp").unwrap();
-        let op_doc_comment = operation.comment().unwrap();
+        let op_doc_returns = &operation.comment().unwrap().returns;
 
-        assert_eq!(op_doc_comment.returns, expected);
+        assert_eq!(op_doc_returns.len(), 1);
+
+        let op_doc_return = &op_doc_returns[0];
+
+        assert_eq!(op_doc_return.message.len(), 1);
+        let MessageComponent::Text(text) = &op_doc_return.message[0] else { panic!() };
+        assert_eq!(text, "\n");
+
+        let Some(identifier) = &op_doc_return.identifier else { panic!() };
+        assert_eq!(identifier.value, "bool");
     }
 
     #[test]
@@ -91,7 +110,7 @@ mod comments {
 
             interface TestInterface
             {
-                /// @return This operation will return a bool.
+                /// @returns: This operation will return a bool.
                 testOp(testParam: string);
             }
         ";
@@ -113,8 +132,8 @@ mod comments {
 
             interface TestInterface
             {
-                /// @param testParam1 A string param
-                /// @param testParam2 A bool param
+                /// @param testParam1: A string param
+                /// @param testParam2: A bool param
                 testOp(testParam1: string);
             }
         ";
@@ -136,9 +155,9 @@ mod comments {
 
             interface TestInterface
             {
-                /// @param testParam1 A string param
-                /// @return bool
-                /// @throws MyException Some message about why testOp throws
+                /// @param testParam1: A string param
+                /// @returns: bool
+                /// @throws MyException: Some message about why testOp throws
                 testOp(testParam1: string) -> bool;
             }
         ";
@@ -158,7 +177,7 @@ mod comments {
 
             interface TestInterface
             {
-                /// @throws MyThrownThing Message about my thrown thing.
+                /// @throws MyThrownThing: Message about my thrown thing.
                 testOp(testParam: string) -> bool;
             }
         ";
@@ -167,11 +186,21 @@ mod comments {
         let ast = parse_for_ast(slice);
 
         // Assert
-        let expected = vec![("MyThrownThing".to_owned(), "Message about my thrown thing.".to_owned())];
         let operation = ast.find_element::<Operation>("tests::TestInterface::testOp").unwrap();
-        let op_doc_comment = operation.comment().unwrap();
+        let op_doc_throws = &operation.comment().unwrap().throws;
 
-        assert_eq!(op_doc_comment.throws, expected);
+        assert_eq!(op_doc_throws.len(), 1);
+
+        let op_doc_throw = &op_doc_throws[0];
+        
+        assert_eq!(op_doc_throw.message.len(), 2);
+        let MessageComponent::Text(text) = &op_doc_throw.message[0] else { panic!() };
+        assert_eq!(text, "Message about my thrown thing.");
+        let MessageComponent::Text(text) = &op_doc_throw.message[1] else { panic!() };
+        assert_eq!(text, "\n");
+
+        let Some(identifier) = &op_doc_throw.identifier else { panic!() };
+        assert_eq!(identifier.value, "MyThrownThing")
     }
 
     #[test]
@@ -180,7 +209,7 @@ mod comments {
         let slice = "
             module tests;
 
-            /// @throws MyThrownThing Message about my thrown thing.
+            /// @throws MyThrownThing: Message about my thrown thing.
             struct S
             {
             }
@@ -203,7 +232,7 @@ mod comments {
 
             interface TestInterface
             {
-                /// @see MySee Message about thing.
+                /// @see MySee
                 testOp(testParam: string) -> bool;
             }
         ";
@@ -212,14 +241,16 @@ mod comments {
         let ast = parse_for_ast(slice);
 
         // Assert
-        let expected = vec!["MySee".to_owned()];
         let operation = ast.find_element::<Operation>("tests::TestInterface::testOp").unwrap();
-        let op_doc_comment = operation.comment().unwrap();
+        let op_doc_sees = &operation.comment().unwrap().see;
 
-        assert_eq!(op_doc_comment.see_also, expected);
+        assert_eq!(op_doc_sees.len(), 1);
+
+        let op_doc_see = &op_doc_sees[0];
+        assert_eq!(op_doc_see.link.value, "MySee");
     }
 
-    #[test_case("/// This is a doc comment.", (4, 13), (4, 39); "doc comment")]
+    #[test_case("/// This is a doc comment.", (4, 16), (4, 39); "doc comment")]
     fn doc_comments_span(comment: &str, expected_start: (usize, usize), expected_end: (usize, usize)) {
         // Arrange
         let slice = format!(
@@ -286,12 +317,15 @@ mod comments {
 
         // Assert
         let struct_def = ast.find_element::<Struct>("tests::TestStruct").unwrap();
-        let doc = struct_def.comment().unwrap();
-        let tags = find_inline_tags(&doc.overview);
+        let overview_message = &struct_def.comment().unwrap().overview.as_ref().unwrap().message;
 
-        assert_eq!(tags.len(), 1);
-        assert_eq!(tags[0].0, "@link");
-        assert_eq!(tags[0].1, "TestStruct");
+        assert_eq!(overview_message.len(), 3);
+        let MessageComponent::Text(text) = &overview_message[0] else { panic!() };
+        assert_eq!(text, "This comment is for ");
+        let MessageComponent::Link(link_tag) = &overview_message[1] else { panic!() };
+        assert_eq!(link_tag.link.value, "TestStruct");
+        let MessageComponent::Text(text) = &overview_message[2] else { panic!() };
+        assert_eq!(text, "\n");
     }
 
     #[test]
@@ -330,8 +364,8 @@ mod comments {
         let diagnostic_reporter = parse_for_diagnostics(slice);
 
         // Assert
-        let expected = &crate::helpers::new_warning(WarningKind::InvalidDocCommentTag {
-            tag: "@linked".to_owned(),
+        let expected = &crate::helpers::new_warning(WarningKind::UnknownDocCommentTag {
+            tag: "linked".to_owned(),
         });
         assert_errors!(diagnostic_reporter, [&expected]);
     }
