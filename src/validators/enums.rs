@@ -4,7 +4,6 @@ use crate::diagnostics::{Diagnostic, DiagnosticReporter, Error};
 use crate::grammar::*;
 use std::collections::HashMap;
 
-// TODO change the order of these to be more logical once the logic has been changed!
 pub fn validate(enum_def: &Enum, diagnostic_reporter: &mut DiagnosticReporter) {
     enumerator_values_fit_within_backing_type(enum_def, diagnostic_reporter);
     has_allowed_underlying_type(enum_def, diagnostic_reporter);
