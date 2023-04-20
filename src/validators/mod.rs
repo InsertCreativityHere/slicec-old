@@ -4,7 +4,7 @@ mod attribute;
 mod comments;
 mod cycle_detection;
 mod dictionary;
-mod r#enum;
+mod enums;
 mod identifiers;
 mod miscellaneous;
 mod sequence;
@@ -187,7 +187,7 @@ impl<'a> Visitor for ValidatorVisitor<'a> {
     }
 
     fn visit_enum_start(&mut self, enum_def: &Enum) {
-        r#enum::validate(enum_def, self.diagnostic_reporter);
+        enums::validate(enum_def, self.diagnostic_reporter);
         self.validate(|validator, ast, diagnostic_reporter| match validator {
             Validator::Attributes(function) => function(enum_def, diagnostic_reporter),
             Validator::DocComments(function) => function(enum_def, ast, diagnostic_reporter),
