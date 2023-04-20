@@ -12,9 +12,9 @@ pub fn validate(enum_def: &Enum, diagnostic_reporter: &mut DiagnosticReporter) {
     checked_enums_are_not_empty(enum_def, diagnostic_reporter);
 }
 
-/// Validate that all of the enum's enumerators fit within the bounds of it's underlying type.
+/// Validate that all of the enum's enumerators fit within the bounds of its underlying type.
 fn enumerator_values_fit_within_backing_type(enum_def: &Enum, diagnostic_reporter: &mut DiagnosticReporter) {
-    // Determine the range of allowed values for enumerators in this enum.
+    // Determine the allowed range of values for enumerators.
     let min_and_max = if enum_def.supported_encodings().supports(&Encoding::Slice1) {
         // The enum was defined in a Slice1 file, so it's underlying type is int32 and its enumerators must be positive.
         Some((0, i32::MAX as i128))
