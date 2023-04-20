@@ -4,11 +4,12 @@ mod attribute;
 mod comments;
 mod cycle_detection;
 mod dictionary;
-mod enums;
+mod r#enum;
 mod identifiers;
 mod miscellaneous;
 mod sequence;
 mod tag;
+mod type_alias;
 
 use crate::ast::node::Node;
 use crate::ast::Ast;
@@ -25,7 +26,6 @@ pub type ValidationChain = Vec<Validator>;
 pub enum Validator {
     Attributes(fn(&dyn Entity, &mut DiagnosticReporter)),
     DocComments(fn(&dyn Entity, &Ast, &mut DiagnosticReporter)),
-    Enums(fn(&Enum, &mut DiagnosticReporter)),
     Entities(fn(&dyn Entity, &mut DiagnosticReporter)),
     Members(fn(Vec<&dyn Member>, &mut DiagnosticReporter)),
     Module(fn(&Module, &mut DiagnosticReporter)),
@@ -34,7 +34,6 @@ pub enum Validator {
     Operations(fn(&Operation, &mut DiagnosticReporter)),
     Parameters(fn(&[&Parameter], &mut DiagnosticReporter)),
     Struct(fn(&Struct, &mut DiagnosticReporter)),
-    TypeAlias(fn(&TypeAlias, &mut DiagnosticReporter)),
 }
 
 pub(crate) fn validate_compilation_data(mut data: CompilationData) -> CompilationResult {
@@ -124,7 +123,6 @@ impl<'a> ValidatorVisitor<'a> {
         let validation_functions = [
             attribute::attribute_validators(),
             comments::comments_validators(),
-            enums::enum_validators(),
             identifiers::identifier_validators(),
             miscellaneous::miscellaneous_validators(),
             tag::tag_validators(),
@@ -189,11 +187,11 @@ impl<'a> Visitor for ValidatorVisitor<'a> {
     }
 
     fn visit_enum_start(&mut self, enum_def: &Enum) {
+        r#enum::validate(enum_def, self.diagnostic_reporter);
         self.validate(|validator, ast, diagnostic_reporter| match validator {
             Validator::Attributes(function) => function(enum_def, diagnostic_reporter),
             Validator::DocComments(function) => function(enum_def, ast, diagnostic_reporter),
             Validator::Entities(function) => function(enum_def, diagnostic_reporter),
-            Validator::Enums(function) => function(enum_def, diagnostic_reporter),
             _ => {}
         });
     }
@@ -306,11 +304,11 @@ impl<'a> Visitor for ValidatorVisitor<'a> {
 
     fn visit_type_alias(&mut self, type_alias: &TypeAlias) {
         validate_type_ref(&type_alias.underlying, self.diagnostic_reporter);
+        type_alias::validate(type_alias, self.diagnostic_reporter);
         self.validate(|validator, ast, diagnostic_reporter| match validator {
             Validator::Attributes(function) => function(type_alias, diagnostic_reporter),
             Validator::DocComments(function) => function(type_alias, ast, diagnostic_reporter),
             Validator::Entities(function) => function(type_alias, diagnostic_reporter),
-            Validator::TypeAlias(function) => function(type_alias, diagnostic_reporter),
             _ => {}
         });
     }

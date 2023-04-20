@@ -9,7 +9,7 @@ pub fn validate(dictionary: &Dictionary, diagnostic_reporter: &mut DiagnosticRep
     super::validate_type_ref(&dictionary.value_type, diagnostic_reporter);
 }
 
-pub fn has_allowed_key_type(dictionary: &Dictionary, diagnostic_reporter: &mut DiagnosticReporter) {
+fn has_allowed_key_type(dictionary: &Dictionary, diagnostic_reporter: &mut DiagnosticReporter) {
     if let Some(e) = check_dictionary_key_type(&dictionary.key_type) {
         e.report(diagnostic_reporter)
     }

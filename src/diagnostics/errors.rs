@@ -77,19 +77,19 @@ pub enum Error {
     /// Enumerator values must be unique.
     DuplicateEnumeratorValue {
         /// The value of the enumerator that was already used.
-        enumerator_value: i128,
+        value: i128,
     },
 
     /// Enums cannot have optional underlying types.
     CannotUseOptionalUnderlyingType {
         /// The identifier of the enum.
-        enum_identifier: String,
+        identifier: String,
     },
 
     /// An enumerator was found that was out of bounds of the underlying type of the parent enum.
     EnumeratorValueOutOfBounds {
         /// The identifier of the enumerator.
-        enumerator_identifier: String,
+        identifier: String,
         /// The value of the out of bounds enumerator.
         value: i128,
         /// The minimum value of the underlying type of the enum.
@@ -101,13 +101,13 @@ pub enum Error {
     /// Enums must be contain at least one enumerator.
     MustContainEnumerators {
         /// The identifier of the enum.
-        enum_identifier: String,
+        identifier: String,
     },
 
     /// Enum underlying types must be integral types.
     UnderlyingTypeMustBeIntegral {
         /// The identifier of the enum.
-        enum_identifier: String,
+        identifier: String,
         /// The name of the non-integral type that was used as the underlying type of the enum.
         kind: String,
     },
@@ -322,20 +322,20 @@ implement_diagnostic_functions!(
     (
         "E009",
         CannotUseOptionalUnderlyingType,
-        format!("invalid enum '{enum_identifier}': enums cannot have optional underlying types"),
-        enum_identifier
+        format!("invalid enum '{identifier}': enums cannot have optional underlying types"),
+        identifier
     ),
     (
         "E010",
         MustContainEnumerators,
-        format!("invalid enum '{enum_identifier}': enums must contain at least one enumerator"),
-        enum_identifier
+        format!("invalid enum '{identifier}': enums must contain at least one enumerator"),
+        identifier
     ),
     (
         "E011",
         UnderlyingTypeMustBeIntegral,
-        format!("invalid enum '{enum_identifier}': underlying type '{kind}' is not supported for enums"),
-        enum_identifier,
+        format!("invalid enum '{identifier}': underlying type '{kind}' is not supported for enums"),
+        identifier,
         kind
     ),
     (
@@ -422,9 +422,9 @@ implement_diagnostic_functions!(
         "E026",
         EnumeratorValueOutOfBounds,
         format!(
-            "invalid enumerator '{enumerator_identifier}': enumerator value '{value}' is out of bounds. The value must be between '{min}..{max}', inclusive",
+            "invalid enumerator '{identifier}': enumerator value '{value}' is out of bounds. The value must be between '{min}..{max}', inclusive",
         ),
-        enumerator_identifier, value, min, max
+        identifier, value, min, max
     ),
     (
         "E027",
@@ -434,8 +434,8 @@ implement_diagnostic_functions!(
     (
         "E028",
         DuplicateEnumeratorValue,
-        format!("enumerator values must be unique; the value '{enumerator_value}' is already in use"),
-        enumerator_value
+        format!("enumerator values must be unique; the value '{value}' is already in use"),
+        value
     ),
     (
         "E029",

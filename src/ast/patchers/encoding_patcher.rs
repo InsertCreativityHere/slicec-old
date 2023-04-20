@@ -439,7 +439,7 @@ impl ComputeSupportedEncodings for Enum {
             if *file_encoding == Encoding::Slice2 {
                 // TODO: this isn't the correct error to emit, remove this when we add enums with associated values.
                 Diagnostic::new(Error::UnderlyingTypeMustBeIntegral {
-                    enum_identifier: self.identifier().to_owned(),
+                    identifier: self.identifier().to_owned(),
                     kind: "None".to_owned(),
                 })
                 .set_span(self.span())

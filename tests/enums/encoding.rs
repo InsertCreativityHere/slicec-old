@@ -81,7 +81,7 @@ mod slice2 {
 
         // Assert
         let expected = Diagnostic::new(Error::UnderlyingTypeMustBeIntegral {
-            enum_identifier: "E".to_owned(),
+            identifier: "E".to_owned(),
             kind: "None".to_owned(),
         });
         check_diagnostics(diagnostics, [expected]);

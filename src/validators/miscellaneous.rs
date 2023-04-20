@@ -10,7 +10,6 @@ pub fn miscellaneous_validators() -> ValidationChain {
         Validator::Parameters(at_most_one_stream_parameter),
         Validator::Struct(validate_compact_struct_not_empty),
         Validator::Module(file_scoped_modules_cannot_contain_sub_modules),
-        Validator::TypeAlias(type_aliases_cannot_be_optional),
     ]
 }
 
@@ -56,21 +55,5 @@ fn validate_compact_struct_not_empty(struct_def: &Struct, diagnostic_reporter: &
         Diagnostic::new(Error::CompactStructCannotBeEmpty)
             .set_span(struct_def.span())
             .report(diagnostic_reporter);
-    }
-}
-
-fn type_aliases_cannot_be_optional(type_alias: &TypeAlias, diagnostic_reporter: &mut DiagnosticReporter) {
-    if type_alias.underlying.is_optional {
-        Diagnostic::new(Error::TypeAliasOfOptional)
-            .set_span(type_alias.span())
-            .add_note(
-                "try removing the trailing `?` modifier from its definition",
-                Some(type_alias.underlying.span()),
-            )
-            .add_note(
-                "instead of aliasing an optional type directly, try making it optional where you use it",
-                None,
-            )
-            .report(diagnostic_reporter)
     }
 }
