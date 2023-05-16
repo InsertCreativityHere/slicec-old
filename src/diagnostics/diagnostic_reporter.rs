@@ -2,19 +2,15 @@
 
 use crate::ast::Ast;
 use crate::command_line::{DiagnosticFormat, SliceOptions};
-use crate::diagnostics::{Diagnostic, DiagnosticKind, Warning};
+use crate::diagnostics::{Diagnostic, DiagnosticKind, Diagnostics, Warning};
 use crate::grammar::{validate_allow_arguments, Attributable, Attribute, Entity};
 use crate::slice_file::SliceFile;
 use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct DiagnosticReporter {
-    /// Vector where all the diagnostics are stored, in the order they're reported.
-    diagnostics: Vec<Diagnostic>,
-    /// The total number of errors reported.
-    error_count: usize,
-    /// The total number of warnings reported.
-    warning_count: usize,
+    /// Stores all the diagnostics that have been reported, in the order they were reported.
+    diagnostics: Diagnostics,
     /// If true, compilation will fail on warnings in addition to errors.
     treat_warnings_as_errors: bool,
     /// Lists all the warnings that should be suppressed by this reporter.
@@ -28,9 +24,7 @@ pub struct DiagnosticReporter {
 impl DiagnosticReporter {
     pub fn new(slice_options: &SliceOptions) -> Self {
         let mut diagnostic_reporter = DiagnosticReporter {
-            diagnostics: Vec::new(),
-            error_count: 0,
-            warning_count: 0,
+            diagnostics: Diagnostics::default(),
             treat_warnings_as_errors: slice_options.warn_as_error,
             diagnostic_format: slice_options.diagnostic_format,
             disable_color: slice_options.disable_color,
@@ -45,17 +39,17 @@ impl DiagnosticReporter {
 
     /// Checks if any errors have been reported during compilation.
     pub fn has_errors(&self) -> bool {
-        self.error_count != 0
+        self.diagnostics.error_count != 0
     }
 
     /// Checks if any diagnostics (warnings or errors) have been reported during compilation.
     pub fn has_diagnostics(&self) -> bool {
-        self.error_count + self.warning_count != 0
+        self.diagnostics.error_count + self.diagnostics.warning_count != 0
     }
 
     /// Returns the total number of errors and warnings reported through the diagnostic reporter.
     pub fn get_totals(&self) -> (usize, usize) {
-        (self.error_count, self.warning_count)
+        (self.diagnostics.error_count, self.diagnostics.warning_count)
     }
 
     /// Returns 1 if any errors were reported and 0 if no errors were reported.
@@ -107,10 +101,6 @@ impl DiagnosticReporter {
     }
 
     pub(super) fn report(&mut self, diagnostic: Diagnostic) {
-        match &diagnostic.kind {
-            DiagnosticKind::Error(_) => self.error_count += 1,
-            DiagnosticKind::Warning(_) => self.warning_count += 1,
-        }
         self.diagnostics.push(diagnostic);
     }
 }

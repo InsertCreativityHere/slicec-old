@@ -12,6 +12,42 @@ pub use diagnostic_reporter::DiagnosticReporter;
 pub use errors::Error;
 pub use warnings::Warning;
 
+#[derive(Debug, Default)]
+pub struct Diagnostics {
+    /// Vector where all the diagnostics are stored.
+    pub(self) diagnostics: Vec<Diagnostic>,
+    /// The total number of errors stored in this struct.
+    pub(self) error_count: usize,
+    /// The total number of warnings stored in this struct.
+    pub(self) warning_count: usize,
+}
+
+impl Diagnostics {
+    pub fn push(&mut self, diagnostic: Diagnostic) {
+        match &diagnostic.kind {
+            DiagnosticKind::Error(_) => self.error_count += 1,
+            DiagnosticKind::Warning(_) => self.warning_count += 1,
+        }
+        self.diagnostics.push(diagnostic);
+    }
+
+    pub fn extend(&mut self, other: Diagnostics) {
+        self.diagnostics.extend(other.diagnostics);
+        self.error_count += other.error_count;
+        self.warning_count += other.warning_count;
+    }
+}
+
+#[rustfmt::skip] // rustfmt puts the associated types in the wrong order.
+impl IntoIterator for Diagnostics {
+    type Item = Diagnostic;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.diagnostics.into_iter()
+    }
+}
+
 /// A diagnostic is a message that is reported to the user during compilation.
 /// It can either hold an [Error] or a [Warning].
 #[derive(Debug)]
