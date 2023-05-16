@@ -3,7 +3,7 @@
 use crate::ast::Ast;
 use crate::compilation_state::CompilationState;
 use crate::compile_from_strings;
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, Diagnostics};
 
 /// This function is used to parse a Slice file and return the AST.
 #[must_use]
@@ -17,13 +17,13 @@ pub fn parse_for_ast(slice: impl Into<String>) -> Ast {
 
 /// This function is used to parse a Slice file and return any Diagnostics that were emitted.
 #[must_use]
-pub fn parse_for_diagnostics(slice: impl Into<String>) -> Vec<Diagnostic> {
+pub fn parse_for_diagnostics(slice: impl Into<String>) -> Diagnostics {
     parse_multiple_for_diagnostics(&[&slice.into()])
 }
 
 /// This function is used to parse multiple Slice files and return any Diagnostics that were emitted.
 #[must_use]
-pub fn parse_multiple_for_diagnostics(slice: &[&str]) -> Vec<Diagnostic> {
+pub fn parse_multiple_for_diagnostics(slice: &[&str]) -> Diagnostics {
     diagnostics_from_compilation_state(compile_from_strings(slice, None))
 }
 
@@ -36,11 +36,10 @@ pub fn assert_parses(slice: impl Into<String>) {
 
 /// This function is used to get the Diagnostics from a `CompilationState`.
 #[must_use]
-pub fn diagnostics_from_compilation_state(compilation_state: CompilationState) -> Vec<Diagnostic> {
+pub fn diagnostics_from_compilation_state(compilation_state: CompilationState) -> Diagnostics {
     compilation_state
         .diagnostic_reporter
         .into_diagnostics(&compilation_state.ast, &compilation_state.files)
-        .collect()
 }
 
 /// Compares diagnostics emitted by the compiler to an array of expected diagnostics.
@@ -55,7 +54,7 @@ pub fn diagnostics_from_compilation_state(compilation_state: CompilationState) -
 ///
 /// If the expected diagnostics don't include spans or notes, this function doesn't check them.
 /// This is useful for the majority of tests that aren't explicitly testing spans or notes.
-pub fn check_diagnostics<const L: usize>(diagnostics: Vec<Diagnostic>, expected: [impl Into<Diagnostic>; L]) {
+pub fn check_diagnostics<const L: usize>(diagnostics: Diagnostics, expected: [impl Into<Diagnostic>; L]) {
     // Check that the correct number of diagnostics were emitted.
     if expected.len() != diagnostics.len() {
         eprintln!(

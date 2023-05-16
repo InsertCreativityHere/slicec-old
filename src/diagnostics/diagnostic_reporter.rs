@@ -61,10 +61,10 @@ impl DiagnosticReporter {
     /// Consumes the diagnostic reporter and returns an iterator over its diagnostics, with any suppressed warnings
     /// filtered out. (ie: any warnings covered by an `allow` attribute or a `--allow` command line flag).
     pub fn into_diagnostics<'a>(
-        self,
+        mut self,
         ast: &'a Ast,
         files: &'a HashMap<String, SliceFile>,
-    ) -> impl Iterator<Item = Diagnostic> + 'a {
+    ) -> Diagnostics {
         // Helper function that checks whether a warning should be suppressed according to the provided identifiers.
         fn is_warning_suppressed_by<'b>(mut identifiers: impl Iterator<Item = &'b String>, warning: &Warning) -> bool {
             identifiers.any(|identifier| identifier == "All" || identifier == warning.error_code())
@@ -77,7 +77,7 @@ impl DiagnosticReporter {
         }
 
         // Filter out any diagnostics that should be suppressed.
-        self.diagnostics.into_iter().filter(move |diagnostic| {
+        self.diagnostics.inner.retain(|diagnostic| {
             let mut is_suppressed = false;
 
             if let DiagnosticKind::Warning(warning) = &diagnostic.kind {
@@ -97,7 +97,9 @@ impl DiagnosticReporter {
                 }
             }
             !is_suppressed
-        })
+        });
+
+        self.diagnostics
     }
 
     pub(super) fn report(&mut self, diagnostic: Diagnostic) {

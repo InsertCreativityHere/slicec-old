@@ -15,7 +15,7 @@ pub use warnings::Warning;
 #[derive(Debug, Default)]
 pub struct Diagnostics {
     /// Vector where all the diagnostics are stored.
-    pub(self) diagnostics: Vec<Diagnostic>,
+    pub(self) inner: Vec<Diagnostic>,
     /// The total number of errors stored in this struct.
     pub(self) error_count: usize,
     /// The total number of warnings stored in this struct.
@@ -23,16 +23,20 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
     pub fn push(&mut self, diagnostic: Diagnostic) {
         match &diagnostic.kind {
             DiagnosticKind::Error(_) => self.error_count += 1,
             DiagnosticKind::Warning(_) => self.warning_count += 1,
         }
-        self.diagnostics.push(diagnostic);
+        self.inner.push(diagnostic);
     }
 
     pub fn extend(&mut self, other: Diagnostics) {
-        self.diagnostics.extend(other.diagnostics);
+        self.inner.extend(other.inner);
         self.error_count += other.error_count;
         self.warning_count += other.warning_count;
     }
@@ -44,7 +48,7 @@ impl IntoIterator for Diagnostics {
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.diagnostics.into_iter()
+        self.inner.into_iter()
     }
 }
 
