@@ -162,10 +162,21 @@ macro_rules! implement_Named_Symbol_for {
 }
 
 macro_rules! implement_Attributable_for {
-    ($type:ty) => {
-        impl Attributable for $type {
+    ($type:ty$(, $($bounds:tt)+)?) => {
+        impl$(<T: $($bounds)+>)? Attributable for $type {
             fn attributes(&self) -> Vec<&Attribute> {
-                self.attributes.iter().map(WeakPtr::borrow).collect::<Vec<_>>()
+                self.attributes.iter().map(WeakPtr::borrow).collect()
+            }
+
+            fn all_attributes(&self) -> Vec<Vec<&Attribute>> {
+                vec![self.attributes()]
+            }
+        }
+    };
+    (Contained $type:ty$(, $($bounds:tt)+)?) => {
+        impl$(<T: $($bounds)+>)? Attributable for $type {
+            fn attributes(&self) -> Vec<&Attribute> {
+                self.attributes.iter().map(WeakPtr::borrow).collect()
             }
 
             fn all_attributes(&self) -> Vec<Vec<&Attribute>> {
@@ -192,7 +203,6 @@ macro_rules! implement_Entity_for {
         implement_Symbol_for!($type);
         implement_Named_Symbol_for!($type);
         implement_Scoped_Symbol_for!($type);
-        implement_Attributable_for!($type);
 
         impl Entity for $type {}
     };

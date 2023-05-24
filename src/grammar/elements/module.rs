@@ -12,18 +12,6 @@ pub struct Module {
     pub span: Span,
 }
 
-impl Attributable for Module {
-    fn attributes(&self) -> Vec<&Attribute> {
-        self.attributes.iter().map(WeakPtr::borrow).collect::<Vec<_>>()
-    }
-
-    fn all_attributes(&self) -> Vec<Vec<&Attribute>> {
-        vec![self.attributes()]
-    }
-}
-
 implement_Element_for!(Module, "module");
-implement_Symbol_for!(Module);
-implement_Named_Symbol_for!(Module);
-implement_Scoped_Symbol_for!(Module);
-impl Entity for Module {}
+implement_Attributable_for!(Module);
+implement_Entity_for!(Module);
