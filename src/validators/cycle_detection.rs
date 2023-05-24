@@ -34,7 +34,7 @@ struct CycleDetector<'a> {
 
 impl CycleDetector<'_> {
     fn check_for_cycles(&mut self, container: &impl Container<WeakPtr<Field>>) -> bool {
-        let type_id = container.module_scoped_identifier();
+        let type_id = container.parser_scoped_identifier();
 
         if self.dependency_stack.first() == Some(&type_id) {
             // If this container's identifier is equal to the first element in the stack, then its definition is cyclic.
