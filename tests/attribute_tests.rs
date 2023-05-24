@@ -716,7 +716,6 @@ mod attributes {
         fn parent_attributes() {
             // Arrange
             let slice = r#"
-                [test::attribute("A")]
                 module A
 
                 [test::attribute("I")]
@@ -740,10 +739,9 @@ mod attributes {
                 })
                 .collect::<Vec<_>>();
 
-            assert_eq!(parent_attributes.len(), 3);
+            assert_eq!(parent_attributes.len(), 2);
             assert_eq!(parent_attributes[0], ("test::attribute", &vec!["S".to_owned()]));
             assert_eq!(parent_attributes[1], ("test::attribute", &vec!["I".to_owned()]));
-            assert_eq!(parent_attributes[2], ("test::attribute", &vec!["A".to_owned()]));
         }
 
         #[test_case("foo"; "plain_attribute")]
@@ -797,8 +795,10 @@ mod attributes {
             // Arrange
             let slice = format!(
                 "
-                    [{attribute}]
                     module Test
+
+                    [{attribute}]
+                    struct S {{}}
                 "
             );
 
@@ -806,10 +806,10 @@ mod attributes {
             let ast = parse_for_ast(slice);
 
             // Assert
-            let module = ast.find_element::<Module>("Test").unwrap();
-            assert_eq!(module.attributes.len(), 1);
+            let struct_def = ast.find_element::<Struct>("Test::S").unwrap();
+            assert_eq!(struct_def.attributes.len(), 1);
             assert!(matches!(
-                &module.attributes[0].borrow().kind,
+                &struct_def.attributes[0].borrow().kind,
                 AttributeKind::Other { directive, .. } if directive == attribute,
             ));
         }
