@@ -38,10 +38,11 @@ fn parse_file(file: &mut SliceFile, ast: &mut Ast, diagnostics: &mut Vec<Diagnos
 
     // Parse the preprocessed text.
     let parser = Parser::new(&file.relative_path, ast, diagnostics);
-    let Ok((file_encoding, attributes, module)) = parser.parse_slice_file(preprocessed_text) else { return; };
+    let Ok((encoding, attributes, module, definitions)) = parser.parse_slice_file(preprocessed_text) else { return; };
 
     // Store the parsed data in the `SliceFile` it was parsed from.
-    file.encoding = file_encoding;
+    file.encoding = encoding;
+    file.module = module.map(|m| ast.add_named_element(m)); // TODO maybe don't add modules as named elements anymore?
     file.attributes = attributes;
-    file.contents = module.map(|m| ast.add_named_element(m));
+    file.contents = definitions;
 }
