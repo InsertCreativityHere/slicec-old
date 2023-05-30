@@ -48,6 +48,7 @@ pub trait Attributable {
     /// Returns the attributes of the element.
     fn attributes(&self) -> Vec<&Attribute>;
 
+    // TODO we need to remove this function!
     /// Returns all the attributes of the element and its parents.
     fn all_attributes(&self) -> Vec<Vec<&Attribute>>;
 

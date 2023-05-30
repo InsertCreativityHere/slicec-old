@@ -14,7 +14,7 @@ mod slice;
 
 use crate::ast::Ast;
 use crate::compilation_state::CompilationState;
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, Error};
 use crate::slice_file::SliceFile;
 use std::collections::HashSet;
 
@@ -39,6 +39,15 @@ fn parse_file(file: &mut SliceFile, ast: &mut Ast, diagnostics: &mut Vec<Diagnos
     // Parse the preprocessed text.
     let parser = Parser::new(&file.relative_path, ast, diagnostics);
     let Ok((encoding, attributes, module, definitions)) = parser.parse_slice_file(preprocessed_text) else { return; };
+
+    // Issue a specific syntax error if the user had definitions but forgot to declare a module.
+    if !definitions.is_empty() && module.is_none() {
+        let diagnostic  = Diagnostic::new(Error::Syntax {
+            // TODO improve this message, see: #348
+            message: "expected one of '[', '[[', 'doc comment', 'encoding', or 'module', but found 'custom'".to_owned(),
+        });
+        diagnostics.push(diagnostic);
+    }
 
     // Store the parsed data in the `SliceFile` it was parsed from.
     file.encoding = encoding;
