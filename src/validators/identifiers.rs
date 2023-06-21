@@ -5,35 +5,33 @@ use crate::diagnostics::{Diagnostic, DiagnosticReporter, Error};
 use crate::grammar::*;
 use std::collections::HashMap;
 
-pub fn validate_inherited_identifiers(
-    symbols: Vec<&impl NamedSymbol>,
-    inherited_symbols: Vec<&impl NamedSymbol>,
+pub fn validate_inherited_identifiers<T: Contained<U>, U: Entity>(
+    symbols: Vec<&T>,
+    inherited_symbols: Vec<&T>,
     diagnostic_reporter: &mut DiagnosticReporter,
 ) {
     check_for_shadowing(symbols, inherited_symbols, diagnostic_reporter);
 }
 
-fn check_for_shadowing(
-    symbols: Vec<&impl NamedSymbol>,
-    inherited_symbols: Vec<&impl NamedSymbol>,
+fn check_for_shadowing<T: Contained<U>, U: Entity>(
+    symbols: Vec<&T>,
+    inherited_symbols: Vec<&T>,
     diagnostic_reporter: &mut DiagnosticReporter,
 ) {
-    let identifiers = symbols.into_iter().map(NamedSymbol::raw_identifier);
-    let inherited_identifiers = inherited_symbols
-        .into_iter()
-        .map(NamedSymbol::raw_identifier)
-        .collect::<Vec<_>>();
+    for symbol in symbols {
+        let identifier = symbol.identifier();
 
-    for identifier in identifiers {
-        for inherited_identifier in &inherited_identifiers {
-            if identifier.value == inherited_identifier.value {
-                Diagnostic::new(Error::Shadows {
-                    identifier: identifier.value.clone(),
+        for inherited_symbol in inherited_symbols {
+            if identifier == inherited_symbol.identifier() {
+                Diagnostic::new(Error::ShadowedMember {
+                    identifier: identifier.to_owned(),
+                    kind: inherited_symbol.kind(),
+                    parent: inherited_symbol.parent().identifier().to_owned(),
                 })
-                .set_span(identifier.span())
+                .set_span(symbol.span())
                 .add_note(
-                    format!("'{}' was previously defined here", inherited_identifier.value),
-                    Some(inherited_identifier.span()),
+                    format!("'{identifier}' was previously defined here"),
+                    Some(inherited_symbol.span()),
                 )
                 .report(diagnostic_reporter);
             }
@@ -77,10 +75,10 @@ fn report_redefinition_error(new: &dyn NamedSymbol, original: &dyn NamedSymbol, 
     Diagnostic::new(Error::Redefinition {
         identifier: new.identifier().to_owned(),
     })
-    .set_span(new.raw_identifier().span())
+    .set_span(new.span())
     .add_note(
         format!("'{}' was previously defined here", original.identifier()),
-        Some(original.raw_identifier().span()),
+        Some(original.span()),
     )
     .report(reporter);
 }

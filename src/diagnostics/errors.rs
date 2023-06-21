@@ -2,20 +2,85 @@
 
 use crate::grammar::Encoding;
 use crate::implement_diagnostic_functions;
-use crate::utils::string_util::indefinite_article;
+use crate::utils::string_util::{indefinite_article, pluralized_kind};
 
 #[derive(Debug)]
 pub enum Error {
-    // ----------------  Generic Errors ---------------- //
+    // ---------------- General Errors ---------------- //
     IO {
         action: &'static str,
         path: String,
         error: std::io::Error,
     },
 
+    DoesNotExist {
+        /// The identifier that was not found.
+        identifier: String,
+    },
+
+    Redefinition {
+        /// The identifier that was redefined.
+        identifier: String,
+    },
+
+    ShadowedMember {
+        /// The identifier that is being shadowed.
+        identifier: String,
+
+        /// The kind of element that is being shadowed.
+        kind: &'static str,
+
+        /// The identifier of the parent where the shadowed element is defined.
+        parent: String,
+    },
+
+    CannotBeUsedAsType {
+        /// The kind of element the user tries to use as a type.
+        kind: &'static str,
+    },
+
+    IllegalInheritance {
+        /// What kind of element we expected to inherit from.
+        kind: &'static str,
+    },
+
+    NotSupportedWithEncoding {
+        /// The kind of thing that isn't supported. This is only set for user-defined elements, not built-in elements.
+        kind: Option<&'static str>,
+
+        /// A string representation of the type that isn't supported. This includes modifiers like '?' and 'stream'.
+        type_string: String,
+
+        /// The encoding that is being used (that doesn't support the above construct).
+        encoding: Encoding,
+    },
+
+    InfiniteSizeCycle {
+        /// The identifier of the type with the infinite cycle.
+        identifier: String,
+    },
+
+    // ---------------- Syntax Errors ---------------- //
     Syntax {
+        /// The message to display to the user.
         message: String,
     },
+
+    // TODO add more more specific syntax errors
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // ---------------- Dictionary Errors ---------------- //
     /// Dictionaries cannot use optional types as keys.
@@ -39,36 +104,6 @@ pub enum Error {
     // ----------------  Encoding Errors ---------------- //
     /// The user specified an encoding multiple times in a single Slice file.
     MultipleEncodingVersions,
-
-    /// The provided kind with identifier is not supported in the specified encoding.
-    NotSupportedWithEncoding {
-        /// The kind that is not supported.
-        kind: String,
-        /// The identifier of the kind that is not supported.
-        identifier: String,
-        /// The encoding that was specified.
-        encoding: Encoding,
-    },
-
-    /// Optionals of this kind are not supported with the Slice1 encoding.
-    OptionalsNotSupported {
-        /// The kind that is not supported.
-        kind: String,
-    },
-
-    /// Streamed parameters are not supported with the Slice1 encoding.
-    StreamedParametersNotSupported,
-
-    /// A non-Slice1 operation used the `AnyException` keyword.
-    AnyExceptionNotSupported,
-
-    /// An unsupported type was used in the specified encoding.
-    UnsupportedType {
-        /// The name of the kind that was used in the specified encoding.
-        kind: String,
-        /// The encoding that was specified.
-        encoding: Encoding,
-    },
 
     // ----------------  Enum Errors ---------------- //
     /// Enumerator values must be unique.
@@ -108,10 +143,6 @@ pub enum Error {
         /// The name of the non-integral type that was used as the underlying type of the enum.
         kind: Option<String>,
     },
-
-    // ----------------  Exception Errors ---------------- //
-    /// Exceptions cannot be used as a data type with the Slice1 encoding.
-    ExceptionAsDataType,
 
     // ----------------  Operation Errors ---------------- //
     /// A streamed parameter was not the last parameter in the operation.
@@ -165,32 +196,10 @@ pub enum Error {
     /// A compact ID was not in the expected range, 0 .. i32::MAX.
     CompactIdOutOfBounds,
 
-    /// An identifier was redefined.
-    Redefinition {
-        /// The identifier that was redefined.
-        identifier: String,
-    },
-
     /// A self-referential type alias has no concrete type.
     SelfReferentialTypeAliasNeedsConcreteType {
         /// The name of the type alias.
         identifier: String,
-    },
-
-    /// An identifier was used to shadow another identifier.
-    Shadows {
-        /// The identifier that is shadowing a previously defined identifier.
-        identifier: String,
-    },
-
-    /// Used to indicate when two types should match, but do not.
-    TypeMismatch {
-        /// The name of the expected kind.
-        expected: String,
-        /// The name of the found kind.
-        actual: String,
-        /// Whether the expected type was a concrete type (true) or a trait type (false).
-        is_concrete: bool,
     },
 
     /// An integer literal was outside the parsable range of 0..i128::MAX.
@@ -206,20 +215,6 @@ pub enum Error {
     InvalidEncodingVersion {
         /// The encoding version that was used.
         encoding: String,
-    },
-
-    /// An self-referential type had an infinite size cycle.
-    InfiniteSizeCycle {
-        /// The type id of the type that caused the error.
-        type_id: String,
-        /// The cycle that was found.
-        cycle: String,
-    },
-
-    /// No element with the specified identifier was found.
-    DoesNotExist {
-        /// The identifier that was not found.
-        identifier: String,
     },
 
     // ----------------  Attribute Errors ---------------- //
@@ -269,10 +264,83 @@ implement_diagnostic_functions!(
     ),
     (
         "E002",
+        Redefinition,
+        format!("'{identifier}' is already defined in this scope"),
+        identifier
+    ),
+    (
+        "E003",
+        DoesNotExist,
+        format!("no element with identifier '{identifier}' exists"),
+        identifier
+    ),
+    (
+        "E004",
+        ShadowedMember,
+        format!(
+            "'{identifier}' shadows {a} {kind} inherited from '{parent}'",
+            a = indefinite_article(&kind),
+        ),
+        identifier,
+        kind,
+        parent
+    ),
+    (
+        "E005",
+        CannotBeUsedAsType,
+        format!(
+            "{kinds} cannot be used as a type",
+            kinds = pluralized_kind(kind),
+        ),
+        kind
+    ),
+    (
+        "E006",
+        IllegalInheritance,
+        format!(
+            "{kinds} can only inherit from other {kinds}",
+            kinds = pluralized_kind(kind),
+        ),
+        kind
+    ),
+    (
+        "E007",
+        NotSupportedWithEncoding,
+        format!(
+            "{}{}'{type_string}' is not supported by the {encoding} encoding",
+            kind.unwrap_or(""),
+            if kind.is_some() { " " } else { "" },
+        ),
+        kind,
+        type_string,
+        encoding
+    ),
+    (
+        "E008",
+        InfiniteSizeCycle,
+        format!("self-referential type '{identifier}' has infinite size"),
+        identifier
+    ),
+    (
+        "E009",
         Syntax,
         format!("invalid syntax: {message}"),
         message
     ),
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
     (
         "E004",
         ArgumentNotSupported,
@@ -328,18 +396,6 @@ implement_diagnostic_functions!(
         kind
     ),
     (
-        "E012",
-        Redefinition,
-        format!("redefinition of '{identifier}'"),
-        identifier
-    ),
-    (
-        "E013",
-        Shadows,
-        format!("'{identifier}' shadows another symbol"),
-        identifier
-    ),
-    (
         "E014",
         CannotHaveDuplicateTag,
         format!("invalid tag on member '{identifier}': tags must be unique"),
@@ -380,23 +436,6 @@ implement_diagnostic_functions!(
         identifier
     ),
     (
-        "E022",
-        TypeMismatch,
-        format!(
-            "type mismatch: expected {} '{expected}' but found {} '{actual}'{}",
-            indefinite_article(expected),
-            indefinite_article(actual),
-            if *is_concrete {
-                "".to_owned()
-            } else {
-                format!(" (which isn't {} '{expected}')", indefinite_article(expected))
-            }
-        ),
-        expected,
-        actual,
-        is_concrete
-    ),
-    (
         "E024",
         CompactStructCannotBeEmpty,
         "compact structs must be non-empty"
@@ -425,35 +464,6 @@ implement_diagnostic_functions!(
         DuplicateEnumeratorValue,
         format!("enumerator values must be unique; the value '{enumerator_value}' is already in use"),
         enumerator_value
-    ),
-    (
-        "E029",
-        NotSupportedWithEncoding,
-        format!("{kind} '{identifier}' is not supported by the {encoding} encoding"),
-        kind, identifier, encoding
-    ),
-    (
-        "E030",
-        UnsupportedType,
-        format!("the type '{kind}' is not supported by the {encoding} encoding"),
-        kind,
-        encoding
-    ),
-    (
-        "E031",
-        ExceptionAsDataType,
-        format!("exceptions cannot be used as a data type with the Slice1 encoding")
-    ),
-    (
-        "E032",
-        OptionalsNotSupported,
-        format!("optionals of type '{kind}' are not supported with the Slice1 encoding"),
-        kind
-    ),
-    (
-        "E033",
-        StreamedParametersNotSupported,
-        "streamed parameters are not supported by the Slice1 encoding"
     ),
     (
         "E034",
@@ -510,24 +520,6 @@ implement_diagnostic_functions!(
         "E043",
         MultipleEncodingVersions,
         "only a single encoding can be specified per file".to_owned()
-    ),
-    (
-        "E045",
-        AnyExceptionNotSupported,
-        format!("operations that throw AnyException are only supported by the Slice1 encoding")
-
-    ),
-    (
-        "E047",
-        InfiniteSizeCycle,
-        format!("self-referential type {type_id} has infinite size.\n{cycle}"),
-        type_id, cycle
-    ),
-    (
-        "E049",
-        DoesNotExist,
-        format!("no element with identifier '{identifier}' exists"),
-        identifier
     ),
     (
         "E050",

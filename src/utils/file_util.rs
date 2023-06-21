@@ -131,7 +131,7 @@ fn find_slice_files(
         if path_buf.is_dir() && !allow_directories {
             // If the path is a file, check if it is a slice file.
             // TODO: It would be better to use `io::ErrorKind::InvalidFilename`, however it is an unstable feature.
-            let io_error = io::Error::new(io::ErrorKind::Other, "Excepted a Slice file but found a directory.");
+            let io_error = io::Error::new(io::ErrorKind::Other, "Excepted Slice file but found a directory.");
             Diagnostic::new(Error::IO {
                 action: "read",
                 path: path.to_owned(),

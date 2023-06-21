@@ -125,9 +125,14 @@ impl CommentLinkPatcher<'_> {
                         format!("no element named '{identifier}' exists in scope")
                     }
                     LookupError::TypeMismatch { actual, .. } => {
-                        // Only primitives and modules have names but cannot be linked to.
-                        debug_assert!(actual == "primitive" || actual == "module");
-                        format!("{actual}s cannot be linked to")
+                        let type_string = match actual.as_str() {
+                            "primitive" => "primitive types",
+                            "module" => "modules",
+
+                            // Only primitives and modules have names but cannot be linked to.
+                            _ => unreachable!(),
+                        };
+                        type_string.to_owned() + " cannot be linked to"
                     }
                 };
                 Diagnostic::new(Warning::BrokenDocLink { message })
@@ -180,18 +185,22 @@ impl CommentLinkPatcher<'_> {
                 }
                 Err(original_patch) => {
                     let entity = original_patch.borrow();
+                    let kind = entity.kind();
+                    let note = format!(
+                        "'{}' is {} {}",
+                        entity.identifier(),
+                        crate::utils::string_util::indefinite_article(kind),
+                        kind,
+                    );
+
                     Diagnostic::new(Warning::IncorrectDocComment {
-                        message: format!("'{}' is not a throwable type", entity.identifier()),
-                    })
-                    .add_note(
-                        format!(
-                            "{} '{}' was defined here: ",
-                            entity.kind().to_owned(),
-                            entity.identifier()
+                        message: format!(
+                            "comment has a 'throws' tag for '{}', but it's not a throwable type",
+                            entity.identifier(),
                         ),
-                        Some(entity.span()),
-                    )
+                    })
                     .add_note("operations can only throw exceptions", None)
+                    .add_note(note, Some(entity.span()))
                     .set_span(tag.span())
                     .set_scope(scope)
                     .report(self.diagnostic_reporter);

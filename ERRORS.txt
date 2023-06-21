@@ -1,0 +1,116 @@
+DuplicateFile:
+	"slice file was provided more than once: '{path}'"
+
+
+
+Deprecated:
+	"'{identifier}' is deprecated: {reason}" [type_ref]
+	"'{identifier}' is deprecated" [type_ref]
+    We always emit the following note: format!("{} was deprecated here:", entity.identifier()) [entity]
+
+
+
+MalformedDocComment: Still a work in progress since we have to massage the errors we get from LALRPOP.
+
+
+
+IncorrectDocComment:
+	"comment has a 'returns' tag, but its operation does not return anything" [returns_tag]
+    We always emit the following note: format!("operation '{}' does not have a return type", operation.identifier()) [operation]
+
+
+	"comment has a 'param' tag for '{}', but its operation has no parameter with that name" [param_tag]
+    We always emit the following note: format!("operation '{}' has no parameter named '{}', operation.identifier(), param_identifier") [operation]
+
+
+	"comment has a 'throws' tag, but its operation does not throw anything" [throws_tag]
+    We always emit the following note: format!("operation '{}' does not throw", operation.identifier()) [operation]
+
+
+	"comment has a 'throws' tag, but only operations can throw" [throws_tag]
+	We always emit the following note: format!("'{identifier}' is {a_or_an} {kind}") [the entity that wasn't an operation]
+
+
+	"comment has a 'throws' tag for '{}', but it's not a throwable type" [throws_tag]
+	We always emit the following note: "operations can only throw exceptions"
+	We always emit the following note: format!("'{identifier}' is {a_or_an} {kind}") [the entity that wasn't an exception]
+
+
+
+BrokenDocLink:
+	"no element named '{identifier}' exists in scope" [identifier]
+	"primitive types cannot be linked to" [identifier]
+	"modules cannot be linked to" [identifier]
+
+
+
+
+
+
+
+
+
+
+IO
+	"unable to read '{path}': {system_error_message}"
+	"unable to read '{path}': Slice files must end with a '.slice' extension"
+	"unable to read '{path}': Expected Slice file, but found a directory"
+
+
+
+Syntax: Still a work in progress since we need to massage the errors we get from LALRPOP.
+
+
+
+Redefinition
+	"'{identifier}' is already defined in this scope" [new_definition]
+	We always emit the following note: format!("'{identifier}' was previously defined here") [previous_definition]
+
+
+
+ShadowedMember
+	"'{identifier}' shadows {a_or_and} {kind} inherited from '{parent}'"
+	We always emit the following note: format!("'{identifier} was previously defined here'")
+
+
+
+DoesNotExist
+	"no element with identifier '{identifier}' exists"
+
+
+
+CannotBeUsedAsType
+	"{pluarlized_kind} cannot be used as a type" [type_identifier]
+	If the type is user defined we emit the following note: format!("'{identifier'} is defined as {a} {kind} here") [definition]
+
+
+
+IllegalInheritance
+	"{pluralized_kind} can only inherit from other {pluralized_kind}" [type_identifier]
+	If the type is user defined we emit the following note: format!("'{identifier'} is defined as {a} {kind} here") [definition]
+
+
+
+NotSupportedWithEncoding
+	"{kind} '{type}' is not supported by the {encoding} encoding" [type]
+	"'{type}' is not supported by the {encoding} encoding" [type]
+	If the user didn't specify a file encoding, and get a Slice1 error, we emit the following note: "file is using the {default} encoding by default"
+	If the user used `AnyException` in a non-Slice1 file we emit the following note: "'AnyException' is only supported by the Slice1 encoding"
+	If the user used `stream` in a Slice1 file we emit the following note: "streamed parameters are not supported by the Slice1 encoding"
+	If the user used an exception as a data type in a Slice1 file we emit the following note: "exceptions cannot be used as a data type with the Slice1 encoding"
+	If the user used a disallowed optional in a Slice1 file we emit the following note: "optionals of {} are not supported with the Slice1 encoding"
+	If the user used a non-compact struct in a Slice1 file we emit the following note: "structs must be 'compact' to be supported by the Slice1 encoding"
+	If the user used exception inheritance in a non-Slice1 file we emit the following note: "exception inheritance is only supported by the Slice1 encoding"
+	If the user used a class in a non-Slice1 file we emit the following note: "classes are only supported by the Slice1 encoding"
+	If the user backed an enum with a type in a Slice1 file we emit the following note: "enums with underlying types are not supported by the Slice1 encoding"
+
+
+
+InfiniteSizeCycle
+	"self-referential type '{identifier}' has infinite size" [definition]
+	We always emit the following note: format!("detected cycle: {cycle} -> {identifier}")
+
+
+
+
+primitive kind should just return 'primitive' probably.

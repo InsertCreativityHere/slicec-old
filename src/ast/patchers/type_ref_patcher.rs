@@ -6,6 +6,7 @@ use crate::diagnostics::*;
 use crate::grammar::attributes::Deprecated;
 use crate::grammar::*;
 use crate::utils::ptr_util::{OwnedPtr, WeakPtr};
+use crate::utils::string_util::indefinite_article;
 
 pub unsafe fn patch_ast(compilation_state: &mut CompilationState) {
     let mut patcher = TypeRefPatcher {
@@ -31,54 +32,54 @@ impl TypeRefPatcher<'_> {
                     .borrow()
                     .base
                     .as_ref()
-                    .and_then(|type_ref| self.resolve_definition(type_ref, ast))
+                    .and_then(|type_ref| self.resolve_inheritance(type_ref, ast))
                     .map(PatchKind::BaseClass),
                 Node::Exception(exception_ptr) => exception_ptr
                     .borrow()
                     .base
                     .as_ref()
-                    .and_then(|type_ref| self.resolve_definition(type_ref, ast))
+                    .and_then(|type_ref| self.resolve_inheritance(type_ref, ast))
                     .map(PatchKind::BaseException),
                 Node::Field(field_ptr) => {
                     let type_ref = &field_ptr.borrow().data_type;
-                    self.resolve_definition(type_ref, ast).map(PatchKind::FieldType)
+                    self.resolve_type(type_ref, ast).map(PatchKind::FieldType)
                 }
                 Node::Interface(interface_ptr) => {
                     interface_ptr.borrow().bases.iter()
-                        .map(|type_ref| self.resolve_definition(type_ref, ast))
+                        .map(|type_ref| self.resolve_inheritance(type_ref, ast))
                         .collect::<Option<Vec<_>>>() // None if any of the bases couldn't be resolved.
                         .map(PatchKind::BaseInterfaces)
                 }
                 Node::Operation(operation_ptr) => {
                     if let Throws::Specific(type_ref) = &operation_ptr.borrow().throws {
-                        self.resolve_definition(type_ref, ast).map(PatchKind::ThrowsType)
+                        self.resolve_thrown_type(type_ref, ast).map(PatchKind::ThrowsType)
                     } else {
                         None
                     }
                 }
                 Node::Parameter(parameter_ptr) => {
                     let type_ref = &parameter_ptr.borrow().data_type;
-                    self.resolve_definition(type_ref, ast).map(PatchKind::ParameterType)
+                    self.resolve_type(type_ref, ast).map(PatchKind::ParameterType)
                 }
                 Node::Enum(enum_ptr) => enum_ptr
                     .borrow()
                     .underlying
                     .as_ref()
-                    .and_then(|type_ref| self.resolve_definition(type_ref, ast))
+                    .and_then(|type_ref| self.resolve_enum_backing_type(type_ref, ast))
                     .map(PatchKind::EnumUnderlyingType),
                 Node::TypeAlias(type_alias_ptr) => {
                     let type_ref = &type_alias_ptr.borrow().underlying;
-                    self.resolve_definition(type_ref, ast)
+                    self.resolve_type(type_ref, ast)
                         .map(PatchKind::TypeAliasUnderlyingType)
                 }
                 Node::Sequence(sequence_ptr) => {
                     let type_ref = &sequence_ptr.borrow().element_type;
-                    self.resolve_definition(type_ref, ast).map(PatchKind::SequenceType)
+                    self.resolve_type(type_ref, ast).map(PatchKind::SequenceType)
                 }
                 Node::Dictionary(dictionary_ptr) => {
                     let dictionary_def = dictionary_ptr.borrow();
-                    let key_patch = self.resolve_definition(&dictionary_def.key_type, ast);
-                    let value_patch = self.resolve_definition(&dictionary_def.value_type, ast);
+                    let key_patch = self.resolve_type(&dictionary_def.key_type, ast);
+                    let value_patch = self.resolve_type(&dictionary_def.value_type, ast);
                     Some(PatchKind::DictionaryTypes(key_patch, value_patch))
                 }
                 _ => None,
@@ -171,52 +172,94 @@ impl TypeRefPatcher<'_> {
         }
     }
 
-    fn resolve_definition<'a, T>(&mut self, type_ref: &TypeRef<T>, ast: &'a Ast) -> Option<Patch<T>>
+    fn resolve_type(&mut self, type_ref: &TypeRef<dyn Type>, ast: &Ast) -> Option<Patch<dyn Type>> {
+        let error_factory = |_, actual_kind| Error::CannotBeUsedAsType {
+            kind: actual_kind,
+        };
+        self.resolve_definition(type_ref, ast, error_factory)
+    }
+
+    fn resolve_enum_backing_type(&mut self, type_ref: &TypeRef<Primitive>, ast: &Ast) -> Option<Patch<Primitive>> {
+        let error_factory = |_, actual_kind| Error::UnsupportedEnumBackingType {
+            kind: actual_kind,
+        };
+        self.resolve_definition(type_ref, ast, error_factory)
+    }
+
+    fn resolve_thrown_type(&mut self, type_ref: &TypeRef<Exception>, ast: &Ast) -> Option<Patch<Exception>> {
+        let error_factory = |_, _| Error::CanOnlyThrowExceptions;
+        self.resolve_definition(type_ref, ast, error_factory)
+    }
+
+    fn resolve_inheritance<'a, T>(&mut self, type_ref: &TypeRef<T>, ast: &'a Ast) -> Option<Patch<T>>
+    where
+        T: Entity + ?Sized,
+        &'a Node: TryInto<WeakPtr<T>, Error = LookupError>,
+    {
+        let error_factory = |expected_kind, _| Error::IllegalInheritance {
+            kind: expected_kind,
+        };
+        self.resolve_definition(type_ref, ast, error_factory)
+    }
+
+    fn resolve_definition<'a, T>(
+        &mut self,
+        type_ref: &TypeRef<T>,
+        ast: &'a Ast,
+        error_factory: fn(&str, &str) -> Error,
+    ) -> Option<Patch<T>>
     where
         T: Element + ?Sized,
         &'a Node: TryInto<WeakPtr<T>, Error = LookupError>,
     {
-        // If the definition is already patched, we skip the function and return `None` immediately.
-        // Otherwise we retrieve the type string and try to resolve it in the ast.
-        let TypeRefDefinition::Unpatched(identifier) = &type_ref.definition else { return None; };
-
         // There are 3 steps to type resolution.
         // First, lookup the type as a node in the AST.
         // Second, handle the case where the type is an alias (by resolving down to its concrete underlying type).
         // Third, get the type's pointer from its node and attempt to cast it to `T` (the required Slice type).
-        let lookup_result = ast
-            .find_node_with_scope(&identifier.value, type_ref.module_scope())
-            .and_then(|node| {
-                // We perform the deprecation check here instead of the validators since we need to check type-aliases
-                // which are resolved and erased after TypeRef patching is completed.
-                self.check_for_deprecated_type(type_ref, node);
 
-                if let Node::TypeAlias(type_alias) = node {
-                    self.resolve_type_alias(type_alias.borrow(), ast)
-                } else {
-                    try_into_patch(node, Vec::new())
-                }
-            });
+        // If the definition is already patched, we skip the function and return `None` immediately.
+        // Otherwise we retrieve the type's identifier so we can try to resolve it in the ast.
+        let TypeRefDefinition::Unpatched(raw_identifier) = &type_ref.definition else { return None; };
+        let identifier = &raw_identifier.value;
 
-        // If we resolved a definition for the type reference, return it, otherwise report what went wrong.
-        match lookup_result {
-            Ok(definition) => Some(definition),
+        // Look up the identifier in the AST, if no node exists with that identifier, report an error and return.
+        let Ok(mut node) = ast.find_node_with_scope(identifier, type_ref.module_scope()) else {
+            Diagnostic::new(Error::DoesNotExist { identifier: identifier.clone() })
+                .set_span(raw_identifier.span())
+                .report(self.diagnostic_reporter);
+            return None;
+        };
+
+        // We perform the deprecation check here instead of the validators since we need to check type-aliases which
+        // are resolved and erased after TypeRef patching is complete.
+        self.check_for_deprecated_type(type_ref, node);
+
+        // Handle the case where the type is an alias by resolving down to its underlying concrete type.
+        let mut additional_attributes = Vec::new();
+        if let Node::TypeAlias(type_alias_ptr) = node {
+            node = self.resolve_type_alias(type_alias_ptr.borrow(), &mut additional_attributes, ast)?;
+        }
+
+        // Attempt to cast the node to the specified Slice type `T`.
+        match try_into_patch(node, additional_attributes) {
+            Ok(patch) => Some(patch),
             Err(err) => {
-                let mapped_error = match err {
-                    LookupError::DoesNotExist { identifier } => Error::DoesNotExist { identifier },
-                    LookupError::TypeMismatch {
-                        expected,
-                        actual,
-                        is_concrete,
-                    } => Error::TypeMismatch {
-                        expected,
-                        actual,
-                        is_concrete,
-                    },
-                };
-                Diagnostic::new(mapped_error)
-                    .set_span(identifier.span())
-                    .report(self.diagnostic_reporter);
+                // TODO: refactor the AST's internal errors, `DoesNotExist` is handled by an Option now.
+                let LookupError::TypeMismatch { expected, actual, .. } = err else { panic!() };
+                let error = error_factory(&expected, &actual);
+                let mut diagnostic = Diagnostic::new(error).set_span(raw_identifier.span());
+
+                // If the type is user-defined add a note describing its location and kind.
+                if let Ok(named_symbol) = <&dyn NamedSymbol>::try_from(node) {
+                    let kind = named_symbol.kind();
+                    let message = format!(
+                        "'{identifier}' is defined as {} {kind} here",
+                        indefinite_article(kind),
+                    );
+                    diagnostic.add_note(message, Some(named_symbol.span()));
+                }
+
+                diagnostic.report(self.diagnostic_reporter);
                 None
             }
         }
@@ -243,19 +286,18 @@ impl TypeRefPatcher<'_> {
         }
     }
 
-    fn resolve_type_alias<'a, T>(&mut self, type_alias: &'a TypeAlias, ast: &'a Ast) -> Result<Patch<T>, LookupError>
-    where
-        T: Element + ?Sized,
-        &'a Node: TryInto<WeakPtr<T>, Error = LookupError>,
-    {
+    fn resolve_type_alias(
+        &mut self,
+        type_alias: &TypeAlias,
+        additional_attributes: &mut Vec<WeakPtr<Attribute>>,
+        ast: &Ast
+    ) -> Option<&Node>{
         // TODO this function is run once per type-alias usage, so we will emit multiple errors for cyclic aliases,
         // once for each use. It would be better to only emit a single error per cyclic alias.
 
         // In case there's a chain of type aliases, we maintain a stack of all the ones we've seen.
         // While resolving the chain, if we see a type alias already in this vector, a cycle is present.
         let mut type_alias_chain = Vec::new();
-
-        let mut attributes: Vec<WeakPtr<Attribute>> = Vec::new();
         let mut current_type_alias = type_alias;
         loop {
             let type_alias_id = current_type_alias.module_scoped_identifier();
@@ -278,16 +320,14 @@ impl TypeRefPatcher<'_> {
                     )
                     .report(self.diagnostic_reporter);
                 }
-                return Err(LookupError::DoesNotExist {
-                    identifier: current_type_alias.module_scoped_identifier(),
-                });
+                return None;
             }
 
             // If we reach this point, we haven't hit a cycle in the type aliases yet.
 
             type_alias_chain.push(current_type_alias.module_scoped_identifier());
             let underlying_type = &current_type_alias.underlying;
-            attributes.extend(underlying_type.attributes.clone());
+            additional_attributes.extend(underlying_type.attributes.clone());
 
             // If we hit a type alias that is already patched, we immediately return its underlying type.
             // Otherwise we retrieve the alias' type string and try to resolve it in the ast.
@@ -296,18 +336,24 @@ impl TypeRefPatcher<'_> {
                     // Lookup the node that is being aliased in the AST, and convert it into a patch.
                     // TODO: when `T = dyn Type` we can skip this, and use `ptr.clone()` directly.
                     let node = ast.as_slice().iter().find(|node| ptr == &<&dyn Element>::from(*node));
-                    return try_into_patch(node.unwrap(), attributes);
+                    return Some(node.unwrap());
                 }
                 TypeRefDefinition::Unpatched(identifier) => identifier,
             };
 
             // We hit another unpatched alias; try to resolve its underlying type's identifier in the AST.
-            let node = ast.find_node_with_scope(&identifier.value, underlying_type.module_scope())?;
+            let Ok(mut node) = ast.find_node_with_scope(&identifier.value, underlying_type.module_scope()) else {
+                Diagnostic::new(Error::DoesNotExist { identifier: identifier.value.clone() })
+                    .set_span(identifier.span())
+                    .report(self.diagnostic_reporter);
+                return None;
+            };
+
             // If the resolved node is another type alias, push it onto the chain and loop again, otherwise return it.
             if let Node::TypeAlias(next_type_alias) = node {
                 current_type_alias = next_type_alias.borrow();
             } else {
-                return try_into_patch(node, attributes);
+                return Some(node);
             }
         }
     }

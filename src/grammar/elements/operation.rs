@@ -122,5 +122,5 @@ pub enum Throws {
 
     /// The operation can throw any Slice exception.
     /// This is only supported by the Slice1 encoding.
-    AnyException,
+    AnyException(Span),
 }

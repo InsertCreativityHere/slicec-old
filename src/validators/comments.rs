@@ -12,15 +12,20 @@ fn only_operations_can_throw(commentable: &dyn Commentable, diagnostic_reporter:
     if let Some(comment) = commentable.comment() {
         if !supported_on.contains(&commentable.kind()) && !comment.throws.is_empty() {
             for throws_tag in &comment.throws {
+                let kind = commentable.kind();
+                let note = format!(
+                    "'{}' is {} {}",
+                    commentable.identifier(),
+                    crate::utils::string_util::indefinite_article(kind),
+                    kind,
+                );
+
                 Diagnostic::new(Warning::IncorrectDocComment {
-                    message: format!(
-                        "doc comment indicates that {} '{}' throws, however, only operations can throw",
-                        commentable.kind(),
-                        commentable.identifier(),
-                    ),
+                    message: "comment has a 'throws' tag, but only operations can throw".to_owned(),
                 })
                 .set_span(throws_tag.span())
                 .set_scope(commentable.parser_scoped_identifier())
+                .add_note(note, Some(commentable.span()))
                 .report(diagnostic_reporter);
             }
         }

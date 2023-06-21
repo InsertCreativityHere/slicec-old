@@ -39,10 +39,13 @@ impl CycleDetector<'_> {
         if self.dependency_stack.first() == Some(&type_id) {
             // If this container's identifier is equal to the first element in the stack, then its definition is cyclic.
             // We report an error, then return `true` to signal to parent functions they should stop checking.
-            let cycle = self.dependency_stack.join(" -> ") + " -> " + &type_id;
-            Diagnostic::new(Error::InfiniteSizeCycle { type_id, cycle })
-                .set_span(container.span())
-                .report(self.diagnostic_reporter);
+            Diagnostic::new(Error::InfiniteSizeCycle {
+                identifier: container.identifier().to_owned(),
+            })
+            .set_span(container.span())
+            .add_note(format!("detected cycle: {} -> {type_id}", self.dependency_stack.join(" -> ")), None)
+            .report(self.diagnostic_reporter);
+
             return true;
         } else if self.dependency_stack.contains(&type_id) {
             // If this container's identifier is in the stack, but isn't the first element, this means it uses a cyclic

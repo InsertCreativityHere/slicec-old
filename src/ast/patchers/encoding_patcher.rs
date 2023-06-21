@@ -4,7 +4,7 @@ use super::super::Node;
 use crate::compilation_state::CompilationState;
 use crate::diagnostics::*;
 use crate::grammar::*;
-use crate::slice_file::SliceFile;
+use crate::slice_file::{SliceFile, Span};
 use crate::supported_encodings::SupportedEncodings;
 use std::collections::HashMap;
 
@@ -88,29 +88,21 @@ impl EncodingPatcher<'_> {
 
         // Ensure the entity is supported by its file's Slice encoding.
         if !supported_encodings.supports(&file_encoding) {
-            let error = Error::NotSupportedWithEncoding {
-                kind: entity_def.kind().to_owned(),
-                identifier: entity_def.identifier().to_owned(),
+            Diagnostic::new(Error::NotSupportedWithEncoding {
+                kind: Some(entity_def.kind()),
+                type_string: entity_def.identifier().to_owned(),
                 encoding: file_encoding,
-            };
-            let mut notes = match additional_info {
-                Some(message) => vec![Note {
-                    message: message.to_owned(),
-                    span: None,
-                }],
-                None => Vec::new(),
-            };
-            notes.extend(self.get_file_encoding_mismatch_note(entity_def));
-
-            Diagnostic::new(error)
-                .set_span(entity_def.span())
-                .extend_notes(notes)
-                .report(self.diagnostic_reporter);
+            })
+            .set_span(entity_def.span())
+            .extend_notes(additional_info.map(|message| Note { message, span: None}))
+            .report(self.diagnostic_reporter);
 
             // Replace the supported encodings with a dummy that supports all encodings.
             // Otherwise everything that uses this type will also not be supported by the file's
             // encoding, causing a cascade of unhelpful error messages.
             supported_encodings = SupportedEncodings::dummy();
+        } else {
+            debug_assert!(additional_info.is_none());
         }
 
         // Cache and return this entity's supported encodings.
@@ -128,7 +120,7 @@ impl EncodingPatcher<'_> {
     ) -> SupportedEncodings {
         // If we encounter a type that isn't supported by its file's encodings, and we know a specific reason why, we
         // store an explanation in this variable. If it's empty, we report a generic message.
-        let mut diagnostics = Vec::new();
+        let mut reason = None;
 
         let mut supported_encodings = match type_ref.concrete_type() {
             Types::Struct(struct_def) => self.get_supported_encodings_for(struct_def),
@@ -137,8 +129,14 @@ impl EncodingPatcher<'_> {
                 // Exceptions can't be used as a data type with Slice1.
                 encodings.disable(Encoding::Slice1);
                 if *file_encoding == Encoding::Slice1 {
-                    let diagnostic = Diagnostic::new(Error::ExceptionAsDataType).set_span(type_ref.span());
-                    diagnostics.push(diagnostic);
+                    let diagnostic = Diagnostic::new(Error::NotSupportedWithEncoding {
+                        kind: Some("type"),
+                        type_string: type_ref.type_string(),
+                        encoding: *file_encoding,
+                    })
+                    .add_note("exceptions cannot be used as a data type with the Slice1 encoding", None);
+
+                    reason.insert(diagnostic);
                 }
                 encodings
             }
@@ -182,13 +180,21 @@ impl EncodingPatcher<'_> {
         if !allow_nullable_with_slice_1 && type_ref.is_optional {
             supported_encodings.disable(Encoding::Slice1);
             if *file_encoding == Encoding::Slice1 {
-                let diagnostic = Diagnostic::new(Error::OptionalsNotSupported {
-                    kind: type_ref.definition().kind().to_owned(),
+                let diagnostic = Diagnostic::new(Error::NotSupportedWithEncoding {
+                    kind: Some("type"),
+                    type_string: type_ref.type_string(),
+                    encoding: *file_encoding,
                 })
-                .set_span(type_ref.span())
+                .add_note(
+                    format!(
+                        "optionals of {} are not supported with the Slice1 encoding",
+                        crate::utils::string_util::pluralized_kind(type_ref.definition().kind()),
+                    ),
+                    None,
+                )
                 .extend_notes(disallowed_optional_suggestion(type_ref, container));
 
-                diagnostics.push(diagnostic);
+                reason.insert(diagnostic);
             }
         }
 
@@ -196,21 +202,18 @@ impl EncodingPatcher<'_> {
         if supported_encodings.supports(file_encoding) {
             supported_encodings
         } else {
-            // If no specific reasons were given for the error, generate a generic one.
-            if diagnostics.is_empty() {
-                let diagnostic = Diagnostic::new(Error::UnsupportedType {
-                    kind: type_ref.type_string(),
+            let diagnostic = reason.unwrap_or_else(|| {
+                // If no specific reasons were given for the error, generate a generic one.
+                Diagnostic::new(Error::NotSupportedWithEncoding {
+                    kind: Some(type_ref.definition().kind()),
+                    type_string: type_ref.type_string(),
                     encoding: *file_encoding,
                 })
+            });
+            diagnostic
                 .set_span(type_ref.span())
-                .extend_notes(self.get_file_encoding_mismatch_note(type_ref));
-
-                diagnostics.push(diagnostic);
-            }
-
-            for diagnostic in diagnostics {
-                diagnostic.report(self.diagnostic_reporter);
-            }
+                .extend_notes(self.get_file_encoding_note(type_ref.span()))
+                .report(self.diagnostic_reporter);
 
             // Return a dummy value that supports all encodings, instead of the real result.
             // Otherwise everything that uses this type will also not be supported by the file's
@@ -219,12 +222,10 @@ impl EncodingPatcher<'_> {
         }
     }
 
-    fn get_file_encoding_mismatch_note(&self, symbol: &impl Symbol) -> Option<Note> {
-        let file_name = &symbol.span().file;
-        let slice_file = self.slice_files.get(file_name).unwrap();
+    fn get_file_encoding_note(&self, span: &Span) -> Option<Note> {
+        let slice_file = self.slice_files.get(&span.file).unwrap();
 
         // Emit a note if the file is using the default encoding.
-
         match slice_file.encoding.as_ref() {
             Some(_) => None,
             None => Some(Note {
@@ -270,7 +271,7 @@ trait ComputeSupportedEncodings {
         patcher: &mut EncodingPatcher,
         supported_encodings: &mut SupportedEncodings,
         file_encoding: &Encoding,
-    ) -> Option<&'static str>;
+    ) -> Option<String>;
 }
 
 impl ComputeSupportedEncodings for Struct {
@@ -279,7 +280,7 @@ impl ComputeSupportedEncodings for Struct {
         patcher: &mut EncodingPatcher,
         supported_encodings: &mut SupportedEncodings,
         file_encoding: &Encoding,
-    ) -> Option<&'static str> {
+    ) -> Option<String> {
         // Insert a dummy entry for the struct into the cache to prevent infinite lookup cycles.
         // If a cycle is encountered, the encodings will be computed incorrectly, but it's an
         // error for structs to be cyclic, so it's fine if the supported encodings are bogus.
@@ -300,7 +301,7 @@ impl ComputeSupportedEncodings for Struct {
         if !self.is_compact {
             supported_encodings.disable(Encoding::Slice1);
             if *file_encoding == Encoding::Slice1 {
-                return Some("structs must be 'compact' to be supported by the Slice1 encoding");
+                return Some("structs must be 'compact' to be supported by the Slice1 encoding".to_owned());
             }
         }
         None
@@ -313,7 +314,7 @@ impl ComputeSupportedEncodings for Exception {
         patcher: &mut EncodingPatcher,
         supported_encodings: &mut SupportedEncodings,
         file_encoding: &Encoding,
-    ) -> Option<&'static str> {
+    ) -> Option<String> {
         // Insert a dummy entry for the exception into the cache to prevent infinite lookup cycles.
         // If a cycle is encountered, the encodings will be computed incorrectly, but it's an
         // error for exceptions to be cyclic, so it's fine if the supported encodings are bogus.
@@ -335,7 +336,7 @@ impl ComputeSupportedEncodings for Exception {
         if self.base_exception().is_some() {
             supported_encodings.disable(Encoding::Slice2);
             if *file_encoding != Encoding::Slice1 {
-                return Some("exception inheritance is only supported by the Slice1 encoding");
+                return Some("exception inheritance is only supported by the Slice1 encoding".to_owned());
             }
         }
         None
@@ -348,7 +349,7 @@ impl ComputeSupportedEncodings for Class {
         patcher: &mut EncodingPatcher,
         supported_encodings: &mut SupportedEncodings,
         file_encoding: &Encoding,
-    ) -> Option<&'static str> {
+    ) -> Option<String> {
         // Insert a dummy entry for the class into the cache to prevent infinite lookup cycles.
         // Cycles are allowed with classes, but the only encoding that supports classes is Slice1,
         // so using this approach to break cycles will still yield the correct supported encodings.
@@ -369,7 +370,7 @@ impl ComputeSupportedEncodings for Class {
         // Classes are only supported by the Slice1 encoding.
         supported_encodings.disable(Encoding::Slice2);
         if *file_encoding != Encoding::Slice1 {
-            Some("classes are only supported by the Slice1 encoding")
+            Some("classes are only supported by the Slice1 encoding".to_owned())
         } else {
             None
         }
@@ -382,7 +383,7 @@ impl ComputeSupportedEncodings for Interface {
         patcher: &mut EncodingPatcher,
         _: &mut SupportedEncodings,
         file_encoding: &Encoding,
-    ) -> Option<&'static str> {
+    ) -> Option<String> {
         // Insert a dummy entry for the interface into the cache to prevent infinite lookup cycles.
         // The correct encoding is computed and inserted later.
         patcher
@@ -403,9 +404,15 @@ impl ComputeSupportedEncodings for Interface {
 
                 // Streamed parameters are not supported by the Slice1 encoding.
                 if member.is_streamed && *file_encoding == Encoding::Slice1 {
-                    Diagnostic::new(Error::StreamedParametersNotSupported)
-                        .set_span(member.span())
-                        .report(patcher.diagnostic_reporter)
+                    Diagnostic::new(Error::NotSupportedWithEncoding {
+                        kind: Some("parameter"),
+                        type_string: member.identifier().to_owned(),
+                        encoding: *file_encoding,
+                    })
+                    .set_span(member.span())
+                    .add_note("streamed parameters are not supported by the Slice1 encoding", None)
+                    .extend_notes(patcher.get_file_encoding_note(member.span()))
+                    .report(patcher.diagnostic_reporter);
                 }
             }
 
@@ -415,20 +422,27 @@ impl ComputeSupportedEncodings for Interface {
                     // Ensure the exception is supported by the operation's (file's) encoding.
                     let supported_encodings = patcher.get_supported_encodings_for(exception_type.definition());
                     if !supported_encodings.supports(file_encoding) {
-                        Diagnostic::new(Error::UnsupportedType {
-                            kind: exception_type.type_string(),
+                        Diagnostic::new(Error::NotSupportedWithEncoding {
+                            kind: Some("exception"),
+                            type_string: exception_type.type_string(),
                             encoding: *file_encoding,
                         })
                         .set_span(exception_type.span())
-                        .extend_notes(patcher.get_file_encoding_mismatch_note(exception_type))
-                        .report(patcher.diagnostic_reporter)
+                        .extend_notes(patcher.get_file_encoding_note(exception_type.span()))
+                        .report(patcher.diagnostic_reporter);
                     }
                 }
-                Throws::AnyException => {
+                Throws::AnyException(span) => {
                     if *file_encoding != Encoding::Slice1 {
-                        Diagnostic::new(Error::AnyExceptionNotSupported)
-                            .set_span(operation.span())
-                            .report(patcher.diagnostic_reporter)
+                        Diagnostic::new(Error::NotSupportedWithEncoding {
+                            kind: None,
+                            type_string: "AnyException".to_owned(),
+                            encoding: Encoding::Slice1,
+                        })
+                        .set_span(span)
+                        .add_note("'AnyException' is only supported by the Slice1 encoding", None)
+                        .extend_notes(patcher.get_file_encoding_note(span))
+                        .report(patcher.diagnostic_reporter);
                     }
                 }
             }
@@ -443,7 +457,7 @@ impl ComputeSupportedEncodings for Enum {
         patcher: &mut EncodingPatcher,
         supported_encodings: &mut SupportedEncodings,
         file_encoding: &Encoding,
-    ) -> Option<&'static str> {
+    ) -> Option<String> {
         // TODO: rework all of this when we add enums with associated types.
         if let Some(underlying_type) = &self.underlying {
             // Enums only support encodings that its underlying type also supports.
@@ -457,7 +471,7 @@ impl ComputeSupportedEncodings for Enum {
             // Enums with underlying types are not supported by the Slice1 encoding.
             supported_encodings.disable(Encoding::Slice1);
             if *file_encoding == Encoding::Slice1 {
-                return Some("enums with underlying types are not supported by the Slice1 encoding");
+                return Some("enums with underlying types are not supported by the Slice1 encoding".to_owned());
             }
         } else {
             // Enums defined in a file using Slice2 must have an explicit underlying type.
@@ -488,7 +502,7 @@ impl ComputeSupportedEncodings for CustomType {
         _: &mut EncodingPatcher,
         _: &mut SupportedEncodings,
         _: &Encoding,
-    ) -> Option<&'static str> {
+    ) -> Option<String> {
         // Custom types are supported by all encodings.
         None
     }
@@ -500,7 +514,7 @@ impl ComputeSupportedEncodings for TypeAlias {
         patcher: &mut EncodingPatcher,
         supported_encodings: &mut SupportedEncodings,
         file_encoding: &Encoding,
-    ) -> Option<&'static str> {
+    ) -> Option<String> {
         // Type aliases only support encodings that its underlying type also supports.
         supported_encodings.intersect_with(&patcher.get_supported_encodings_for_type_ref(
             &self.underlying,
