@@ -194,7 +194,7 @@ mod comments {
                 message: "doc comments cannot be applied to parameters".to_owned(),
             }),
             Diagnostic::new(Error::Syntax {
-                message: "doc comments cannot be applied to return members".to_owned(),
+                message: "doc comments cannot be applied to parameters".to_owned(),
             }),
         ];
         check_diagnostics(diagnostics, expected);
