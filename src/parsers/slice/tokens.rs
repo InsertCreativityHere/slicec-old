@@ -2,8 +2,10 @@
 
 //! This module defines all the tokens and errors that the Slice [Lexer](super::lexer::Lexer) can return.
 
-use crate::slice_file::Location;
 use std::fmt;
+
+use crate::diagnostics; // TODO these can go on the same line, or wait, that's getting moved anyways,
+use crate::slice_file::Location;
 
 pub type Token<'a> = (Location, TokenKind<'a>, Location);
 pub type Error = (Location, ErrorKind, Location);
@@ -95,7 +97,7 @@ pub enum TokenKind<'input> {
     Minus,        // "-"
 }
 
-impl fmt::Display for TokenKind<'_> {
+impl std::fmt::Display for TokenKind<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", match &self {
             TokenKind::Identifier(input) => input,     // "[_a-zA-Z][_a-zA-Z0-9]*"
@@ -188,4 +190,24 @@ pub enum ErrorKind {
     /// Returned when a block comment is missing its closing "*/".
     /// Ex: `/* this is a bad comment`, there's no closing "*/" before EOF.
     UnterminatedBlockComment,
+}
+
+impl From<ErrorKind> for diagnostics::Error {
+    fn from(kind: ErrorKind) -> diagnostics::Error {
+        let kind = match kind {
+            ErrorKind::UnknownSymbol { symbol, suggestion } => diagnostics::ErrorKind::Syntax {
+                message: match suggestion {
+                    Some(s) => format!("unknown symbol '{symbol}', try using '{s}' instead"),
+                    None => format!("unknown symbol '{symbol}'"),
+                },
+            },
+            ErrorKind::UnterminatedStringLiteral => diagnostics::ErrorKind::Syntax {
+                message: "unterminated string literal".to_owned(),
+            },
+            ErrorKind::UnterminatedBlockComment => diagnostics::ErrorKind::Syntax {
+                message: "unterminated block comment".to_owned(),
+            },
+        };
+        diagnostics::Error::new(kind)
+    }
 }

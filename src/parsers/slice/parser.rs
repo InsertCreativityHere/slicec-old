@@ -18,7 +18,7 @@ macro_rules! implement_parse_function {
             super::grammar::lalrpop::$underlying_parser::new()
                 .parse(self, input.into())
                 .map_err(|parse_error| {
-                    let error = super::construct_error_from(parse_error, self.file_name);
+                    let error = super::construct_error_from(parse_error, self.file_name); // TODO simplify this alot.
                     error.report(self.diagnostic_reporter);
                 })
         }

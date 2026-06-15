@@ -75,7 +75,7 @@ generate_node_enum! {
     Enumerator, CustomType, TypeAlias, Sequence, Dictionary, Primitive
 }
 
-impl<'a> TryFrom<&'a Node> for &'a dyn Type {
+impl<'a> TryFrom<&'a Node> for &'a dyn Type { // Move these TryFrom into a better order TODO
     type Error = Error;
 
     /// Attempts to unwrap a node to a dynamically typed reference of a Slice [Type].
@@ -123,7 +123,7 @@ impl<'a> TryFrom<&'a Node> for &'a dyn Entity {
             Node::Enumerator(enumerator_ptr) => Ok(enumerator_ptr.borrow()),
             Node::CustomType(custom_type_ptr) => Ok(custom_type_ptr.borrow()),
             Node::TypeAlias(type_alias_ptr) => Ok(type_alias_ptr.borrow()),
-            _ => Err(Error::new(ErrorKind::TypeMismatch {
+            _ => Err(Error::new(ErrorKind::TypeMismatch { // TODO
                 expected: "Entity".to_owned(),
                 actual: node.to_string().to_case(Case::Lower),
             })),
